@@ -54,8 +54,8 @@ model Substation {
   id             String @id @default(uuid())
   substationCode String @unique
   name           String
-  latitude       Float?
-  longitude      Float?
+  lat      Float?
+  lon      Float?
 
   feeders Feeder[]
 
@@ -66,12 +66,11 @@ model Substation {
 }
 
 model Feeder {
-  id         String @id @default(uuid())
-  feederCode String @unique
+  id         String @id
   name       String
 
-  substationId String
-  substation   Substation @relation(fields: [substationId], references: [id])
+  substationId String?
+  substation   Substation? @relation(fields: [substationId], references: [id])
 
   transformers DistributionTransformer[]
 
@@ -85,13 +84,11 @@ model Feeder {
 }
 
 model DistributionTransformer {
-  id String @id @default(uuid())
-
-  dtCode String  @unique
+  id String @id
   name   String?
 
-  latitude  Float
-  longitude Float
+  lat Float
+  lon Float
 
   feederId String
   feeder   Feeder @relation(fields: [feederId], references: [id])
@@ -110,12 +107,10 @@ model DistributionTransformer {
 }
 
 model Pole {
-  id String @id @default(uuid())
-
-  poleCode  String  @unique
+  id String @id
   pin       String?
-  latitude  Float
-  longitude Float
+  lat  Float
+  lon Float
 
   transformerId String
   transformer   DistributionTransformer @relation(fields: [transformerId], references: [id], onDelete: Cascade)
@@ -135,7 +130,6 @@ model Pole {
   updatedAt DateTime @updatedAt
 
   @@index([transformerId])
-  @@index([poleCode])
   @@map("poles")
 }
 
@@ -161,9 +155,7 @@ model PoleConnection {
 }
 
 model Device {
-  id String @id @default(uuid())
-
-  deviceIdentifier String @unique
+  id String @id
 
   poleId String @unique
   pole   Pole   @relation(fields: [poleId], references: [id], onDelete: Cascade)
