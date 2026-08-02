@@ -1,65 +1,109 @@
-                          Real Devices              Simulator
-                                │                      │
-                                └──────────┬───────────┘
-                                           │
-                                           ▼
-                              Telemetry Ingestion API
-                                           │
-                                           ▼
-                           Telemetry Normalization Layer
-                                           │
-                                           ▼
-                               Pole Health Snapshots
-                                           │
-                                           ▼
-                            Candidate Observation Window
-                                   (30 seconds)
-                                           │
-                              ┌────────────┴────────────┐
-                              │                         │
-                       Power Restored?            Still Dark?
-                              │                         │
-                              ▼                         ▼
-                     Discard Candidate        Localization Engine
-                                                      │
-                                                      ▼
-                                          Topology Resolution
-                                  ┌────────────────────────────┐
-                                  │                            │
-                           Official Topology         Inferred Topology
-                                  │                            │
-                                  └──────────────┬─────────────┘
+                                        ┌──────────────────────────────┐
+                                        │     Pole Registry (CSV)      │
+                                        │  (Substations, Feeders, DTs, │
+                                        │   Poles, Official Topology)  │
+                                        └──────────────┬───────────────┘
+                                                       │
+                                                       ▼
+                                         Network Import & Validation
+                                                       │
+                                ┌──────────────────────┴──────────────────────┐
+                                │                                             │
+                     Official Topology Available?                     Missing Topology
+                                │                                             │
+                               Yes                                            No
+                                │                                             │
+                                ▼                                             ▼
+                   Store Official Connections                   MST + BFS Topology Inference
+                                │                                             │
+                                └──────────────────────┬──────────────────────┘
+                                                       ▼
+                                            pole_connections
+                                    (Official / Inferred + Confidence)
+                                                       │
+                                                       │
+═══════════════════════════════════════════════════════════════════════════════════════════
+
+                     Real Devices                              Simulator UI
+                          │                                        │
+                          │                         (Operator selects DT, Pole,
+                          │                          Fault Type & Duration)
+                          │                                        │
+                          └──────────────────────┬─────────────────┘
+                                                 ▼
+                                     Telemetry Ingestion API
+                                                 │
+                                                 ▼
+                                     In-Memory Ingestion Buffer
+                                   (Deduplication + Burst Handling)
+                                                 │
+                                                 ▼
+                                   Telemetry Normalization Layer
+                                                 │
+                                                 ▼
+                                         Pole Health Store
+                                    (Current State Per Pole)
+                                                 │
+                               ┌─────────────────┴─────────────────┐
+                               │                                   │
+                      Meaningful State Change?                Routine Heartbeat
+                               │                                   │
+                              Yes                                  │
+                               │                                   │
+                               ▼                                   ▼
+                      telemetry_events                    Update Pole Health Only
+                      (Historical Audit)                         (No Persistence)
+                               │
+                               └─────────────────┬─────────────────┘
+                                                 ▼
+                                       Localization Engine
+                                                 │
+                                                 ▼
+                                   Uses Stored pole_connections
+                                   (Never Recomputes MST Here)
+                                                 │
                                                  ▼
                                     Fault Boundary Detection
                                                  │
                                                  ▼
-                                   Incident Grouping Engine
+                                     Incident Grouping Engine
                                                  │
                                                  ▼
-                                 Incident (Create / Update)
+                                            Incident Record
                                                  │
                                                  ▼
-                                      Confidence Engine
+                                        Confidence Engine
                                                  │
-      ┌────────────────┬────────────────┬────────────────┬────────────────┬────────────────┬────────────────┐
-      ▼                ▼                ▼                ▼                ▼                ▼
-  Topology        Telemetry        Boundary      Sensor Health     Observation     Maintenance
-  Evaluator       Evaluator        Evaluator       Evaluator         Evaluator       Evaluator
-      └────────────────┴────────────────┴────────────────┴────────────────┴────────────────┴────────────────┘
-                                                 │
-                                                 ▼
-                                      Confidence Report
+         ┌──────────────────────┬─────────────────────┬─────────────────────┬──────────────────────┐
+         ▼                      ▼                     ▼                     ▼                      ▼
+   Topology               Telemetry             Boundary            Sensor Health           Maintenance
+   Evaluator              Evaluator             Evaluator             Evaluator              Evaluator
+         └──────────────────────┴─────────────────────┴─────────────────────┴──────────────────────┘
                                                  │
                                                  ▼
-                                  Location Formatting Utility
-                                      (Missing PIN Resolver)
+                                  Confidence Score + Breakdown
                                                  │
-                  ┌──────────────────────────────┼──────────────────────────────┐
-                  ▼                              ▼                              ▼
-         Notification Service (SSE)      REST API Response             AI Operational Brief
-                  │                              │                              │
-                  ▼                              ▼                              ▼
-             Operator Dashboard         External Clients              Operator Dashboard
+                           ┌─────────────────────┴──────────────────────┐
+                           │                                            │
+                 Confidence ≥ Threshold                     Confidence < Threshold
+                           │                                            │
+                           ▼                                            ▼
+                    Create Ticket                          Monitor Incident
+                           │
+                           ▼
+                     Ticket Lifecycle
+        DETECTED → ACKNOWLEDGED → CREW_ASSIGNED
+           → RESOLVED → VERIFIED → CLOSED
+                           │
+                           ▼
+                Verification via Live Telemetry
+                           │
+                           ▼
+                  Operator Dashboard (SSE Updates)
+                           │
+          ┌────────────────┼──────────────────────┐
+          ▼                ▼                      ▼
+    Interactive Map    Incident Panel      AI Operational Brief
 
 
 Electrical Infrastructure : These define the electrical network.
@@ -92,16 +136,10 @@ pole_health -> Represents the health of a pole.
 
 Incident -> Represents a fault.
 
-Incident History -> Append-only. Every status change gets recorded.
-
-confidence_evaluations -> One row per evaluator.
-
-incident_briefs -> AI generated operational briefs.
+tickets -> List of tickets for each incident.
 
 
 
 Simulation
 ──────────────────────────────
 Simulation Scenario -> Predefined templates.
-
-simulation_sessions -> Every execution.

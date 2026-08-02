@@ -6,3 +6,6 @@ However, I identified a limitation in this approach: considering every pole as a
 
 2. Incident Grouping and Duplicate Detection
 Initially, the AI model suggested excluding time as a factor when grouping incidents. I challenged this approach by raising a scenario: if telemetry data is received from the same subtree within a short time interval, wouldn't this result in multiple tickets being created for what is essentially the same incident? In response, the AI model revised its recommendation to incorporate time as a factor in incident definition, alongside spatial boundaries. This enhancement enables the system to continuously update the boundary and confidence level of an existing incident rather than creating duplicate entries for the same outage event.
+
+3. Creation of tickets
+The AI model suggested to created tickets every fault detected after localisation ignoring the fact that the fault may not be real. However, i suggested that we should create tickets only when the after the confidence evaluation for that incident . This single step significantly reduce the number of tickets being generated and only the most probable fault is reported.
