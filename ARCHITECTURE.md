@@ -143,3 +143,42 @@ tickets -> List of tickets for each incident.
 Simulation
 ──────────────────────────────
 Simulation Scenario -> Predefined templates.
+
+
+Telemetry
+Method	Endpoint	Purpose
+POST	/api/telemetry	Receive telemetry from simulator/devices
+
+Incidents
+Method	Endpoint	Purpose
+GET	/api/incidents	List incidents
+GET	/api/incidents/:id	Incident details
+GET	/api/incidents/active	Active incidents
+
+Tickets
+Method	Endpoint	Purpose
+GET	/api/tickets	List tickets
+PATCH	/api/tickets/:id/acknowledge	Acknowledge
+PATCH	/api/tickets/:id/assign	Crew Assigned
+PATCH	/api/tickets/:id/resolve	Resolve
+PATCH	/api/tickets/:id/verify	Verify
+PATCH	/api/tickets/:id/close	Close
+
+Simulator
+Method	Endpoint	Purpose
+POST	/api/simulator/inject	Inject custom fault
+POST	/api/simulator/restore	Restore power
+GET	/api/network	Topology for simulator/map
+
+Dashboard
+Method	Endpoint	Purpose
+GET	/api/dashboard/summary	KPI cards
+GET	/api/network	Map data
+GET	/api/poles/:id	Pole details
+
+AI
+Method	Endpoint	Purpose
+POST	/api/incidents/:id/summary	Generate AI summary
+
+SSE
+GET /api/events
