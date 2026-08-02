@@ -1,0 +1,336 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventType {
+  HEARTBEAT
+  POWER_LOST
+  POWER_RESTORED
+  BOOT
+  HEARTBEAT_TIMEOUT
+}
+
+enum TicketStatus {
+  DETECTED
+  ACKNOWLEDGED
+  CREW_ASSIGNED
+  RESOLVED
+  VERIFIED
+  CLOSED
+}
+
+enum ConnectionSource {
+  OFFICIAL
+  MST
+}
+
+enum HealthStatus {
+  HEALTHY
+  OFFLINE
+  LOW_BATTERY
+  WEAK_SIGNAL
+  UNKNOWN
+  NO_DEVICE
+}
+
+enum MaintenanceStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+}
+
+model Substation {
+  id             String @id @default(uuid())
+  substationCode String @unique
+  name           String
+  latitude       Float?
+  longitude      Float?
+
+  feeders Feeder[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("substations")
+}
+
+model Feeder {
+  id         String @id @default(uuid())
+  feederCode String @unique
+  name       String
+
+  substationId String
+  substation   Substation @relation(fields: [substationId], references: [id])
+
+  transformers DistributionTransformer[]
+
+  maintenanceEvents MaintenanceEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([substationId])
+  @@map("feeders")
+}
+
+model DistributionTransformer {
+  id String @id @default(uuid())
+
+  dtCode String  @unique
+  name   String?
+
+  latitude  Float
+  longitude Float
+
+  feederId String
+  feeder   Feeder @relation(fields: [feederId], references: [id])
+
+  poles Pole[]
+
+  incidents Incident[]
+
+  maintenanceEvents MaintenanceEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([feederId])
+  @@map("distribution_transformers")
+}
+
+model Pole {
+  id String @id @default(uuid())
+
+  poleCode  String  @unique
+  pin       String?
+  latitude  Float
+  longitude Float
+
+  transformerId String
+  transformer   DistributionTransformer @relation(fields: [transformerId], references: [id], onDelete: Cascade)
+
+  // Relationships
+  health          PoleHealth?
+  telemetryEvents TelemetryEvent[]
+  device          Device?
+
+  outgoingConnections PoleConnection[] @relation("FromPole")
+  incomingConnections PoleConnection[] @relation("ToPole")
+
+  boundaryFromIncidents Incident[] @relation("BoundaryFromPole")
+  boundaryToIncidents   Incident[] @relation("BoundaryToPole")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([transformerId])
+  @@index([poleCode])
+  @@map("poles")
+}
+
+model PoleConnection {
+  id String @id @default(uuid())
+
+  fromPoleId String
+  toPoleId   String
+
+  fromPole Pole @relation("FromPole", fields: [fromPoleId], references: [id], onDelete: Cascade)
+  toPole   Pole @relation("ToPole", fields: [toPoleId], references: [id], onDelete: Cascade)
+
+  source     ConnectionSource
+  confidence Float            @default(100)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fromPoleId, toPoleId])
+  @@index([fromPoleId])
+  @@index([toPoleId])
+  @@map("pole_connections")
+}
+
+model Device {
+  id String @id @default(uuid())
+
+  deviceIdentifier String @unique
+
+  poleId String @unique
+  pole   Pole   @relation(fields: [poleId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  poleHealths     PoleHealth[]
+  telemetryEvents TelemetryEvent[]
+
+  @@map("devices")
+}
+
+model MaintenanceEvent {
+  id String @id @default(uuid())
+
+  title String
+
+  feederId String
+  feeder   Feeder @relation(fields: [feederId], references: [id], onDelete: Cascade)
+
+  status MaintenanceStatus @default(PLANNED)
+
+  transformerId String?
+  transformer   DistributionTransformer? @relation(fields: [transformerId], references: [id], onDelete: Cascade)
+
+  startsAt DateTime
+  endsAt   DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([feederId])
+  @@index([transformerId])
+  @@map("maintenance_events")
+}
+
+model PoleHealth {
+  poleId String @id
+
+  pole Pole @relation(fields: [poleId], references: [id], onDelete: Cascade)
+
+  deviceId String?
+  device   Device? @relation(fields: [deviceId], references: [id])
+
+  isEnergized Boolean?
+
+  lastEventType EventType?
+
+  lastSequenceNumber Int?
+
+  lastDeviceTimestamp DateTime?
+
+  lastReceivedAt DateTime?
+
+  lastHeartbeatAt DateTime?
+
+  batteryMv Int?
+
+  rssi Int?
+
+  firmwareVersion String?
+
+  healthStatus HealthStatus @default(UNKNOWN)
+
+  updatedAt DateTime @updatedAt
+
+  @@index([deviceId])
+  @@map("pole_health")
+}
+
+model TelemetryEvent {
+  id String @id @default(uuid())
+
+  poleId String
+  pole   Pole   @relation(fields: [poleId], references: [id], onDelete: Cascade)
+
+  deviceId String?
+  device   Device? @relation(fields: [deviceId], references: [id])
+
+  eventType EventType
+
+  isEnergized Boolean?
+
+  deviceTimestamp DateTime
+
+  receivedAt DateTime @default(now())
+
+  sequenceNumber Int
+
+  batteryMv Int?
+
+  rssi Int?
+
+  firmwareVersion String?
+
+  rawPayload Json
+
+  createdAt DateTime @default(now())
+
+  @@unique([deviceId, sequenceNumber])
+  @@index([poleId])
+  @@index([deviceId])
+  @@index([eventType])
+  @@index([deviceTimestamp])
+  @@map("telemetry_events")
+}
+
+model Incident {
+  id String @id @default(uuid())
+
+  incidentNumber String @unique
+
+  transformerId String
+  transformer   DistributionTransformer @relation(fields: [transformerId], references: [id], onDelete: Cascade)
+
+  boundaryFromPoleId String
+  boundaryFromPole   Pole   @relation("BoundaryFromPole", fields: [boundaryFromPoleId], references: [id])
+
+  boundaryToPoleId String
+  boundaryToPole   Pole   @relation("BoundaryToPole", fields: [boundaryToPoleId], references: [id])
+
+  affectedPoleCount Int
+
+  confidenceScore Float
+
+  confidenceBreakdown Json
+
+  isTicketCreated Boolean @default(false)
+
+  detectedAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  ticket Ticket?
+
+  @@index([transformerId])
+  @@index([boundaryFromPoleId])
+  @@index([boundaryToPoleId])
+  @@map("incidents")
+}
+
+model Ticket {
+  id String @id @default(uuid())
+
+  ticketNumber String @unique
+
+  incidentId String   @unique
+  incident   Incident @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+
+  status TicketStatus @default(DETECTED)
+
+  detectedAt DateTime @default(now())
+
+  acknowledgedAt DateTime?
+
+  crewAssignedAt DateTime?
+
+  resolvedAt DateTime?
+
+  verifiedAt DateTime?
+
+  closedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("tickets")
+}

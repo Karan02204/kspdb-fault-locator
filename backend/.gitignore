@@ -1,0 +1,9 @@
+.env
+/generated/prisma
+.agents/
+.claude/
+.windsurf/
+skills-lock.json
+prisma/migrations
+prisma/client
+node_modules
