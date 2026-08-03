@@ -1,45 +1,63 @@
-export interface SubstationImport {
+export interface FeederData {
   id: string;
   name: string;
 }
 
-export interface FeederImport {
+export interface DistributionTransformerData {
   id: string;
-  substationId: string | null;
-}
-
-export interface TransformerImport {
-  id: string;
+  name?: string | null;
+  lat: number;
+  lon: number;
   feederId: string;
-  latitude: number;
-  longitude: number;
-  capacityKva: number;
-  householdsServed: number;
 }
 
-export interface PoleImport {
+export interface PoleData {
   id: string;
-  latitude: number;
-  longitude: number;
+  pin?: string | null;
+  lat: number;
+  lon: number;
   transformerId: string;
-  pin: string | null;
 }
 
-export interface DeviceImport {
+export interface DeviceData {
   id: string;
   poleId: string;
 }
 
-export interface PoleConnectionImport {
+export interface PoleConnectionData {
   fromPoleId: string;
   toPoleId: string;
+  source: "OFFICIAL" | "MST";
+  confidence: number;
+}
+
+export interface PoleCsvRow {
+  pole_id: string;
+  lat: string;
+  lon: string;
+  feeder_id: string;
+  dt_id: string;
+  seq_on_line?: string;
+  parent_pole_id?: string;
+  pole_type?: string;
+  ward?: string;
+  pincode?: string;
+  device_id?: string;
+}
+
+export interface TransformerCsvRow {
+  dt_id: string;
+  feeder_id: string;
+  lat: string;
+  lon: string;
+  capacity_kva: string;
+  households_served: string;
 }
 
 export interface NetworkImportData {
-  substations: SubstationImport[];
-  feeders: FeederImport[];
-  transformers: TransformerImport[];
-  poles: PoleImport[];
-  devices: DeviceImport[];
-  connections: PoleConnectionImport[];
+  feeders: FeederData[];
+  transformers: DistributionTransformerData[];
+  poles: PoleData[];
+  devices: DeviceData[];
+  connections: PoleConnectionData[];
 }

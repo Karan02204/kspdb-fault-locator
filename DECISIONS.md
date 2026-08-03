@@ -1,3 +1,77 @@
+## [2026-08-03] Canonical Domain Events replace Canonical Pole States
+
+## Status: Supersedes part of Telemetry Normalization & Device Compatibility.
+
+## Context
+
+The original design proposed converting all telemetry into a canonical pole state (HEALTHY, OUTAGE, UNKNOWN) during the normalization stage.
+
+During implementation it became clear that the normalization layer should normalize events, not determine persistent state.
+
+Persistent pole state is maintained later by the Telemetry Service through the PoleHealth aggregate.
+
+## Updated Decision
+
+The Telemetry Normalization Layer now converts vendor-specific telemetry into canonical domain events instead of canonical pole states.
+
+Canonical events include:
+
+POLE_DARK
+POLE_LIVE
+HEARTBEAT
+DEVICE_BOOTED
+
+The Telemetry Service consumes these events and updates the latest PoleHealth snapshot.
+
+## Why
+
+Separating events from state follows event-driven design principles.
+
+The normalizer performs protocol translation only.
+
+Business logic remains responsible for deciding how those events affect the current state of a pole.
+
+## Trade-offs
+
+Introduces one additional abstraction (PoleStateEvent) but keeps business logic independent of firmware-specific event names.
+
+## [2026-08-03] Duplicate Detection moved from Normalization Layer to Telemetry Service
+
+## Status: Refines the Telemetry Normalization ADR.
+
+## Context
+
+The original ADR assigned duplicate removal and out-of-order handling to the normalization layer.
+
+During implementation these concerns proved to be business rules rather than protocol translation.
+
+## Updated Decision
+
+Responsibilities are now separated as follows.
+
+Telemetry Normalizer
+
+Parse telemetry
+Convert firmware-specific events
+Produce canonical domain events
+
+Telemetry Service
+
+Sequence-number deduplication
+Out-of-order protection
+PoleHealth updates
+Telemetry persistence
+
+## Why
+
+Duplicate detection depends on historical state (lastSequenceNumber) stored in the database.
+
+That responsibility naturally belongs to the application service rather than the normalization component.
+
+## Trade-offs
+
+The service layer becomes slightly richer but the normalization layer remains pure and deterministic.
+
 ## [2026-08-02] — AI-Powered Operational Brief
 
 **Chose:**

@@ -44,6 +44,14 @@ enum HealthStatus {
   NO_DEVICE
 }
 
+enum PoleStateEvent {
+  POLE_DARK
+  POLE_LIVE
+  HEARTBEAT
+  DEVICE_BOOTED
+  UNKNOWN
+}
+
 enum MaintenanceStatus {
   PLANNED
   ACTIVE
@@ -202,7 +210,7 @@ model PoleHealth {
 
   isEnergized Boolean?
 
-  lastEventType EventType?
+  lastPoleStateEvent PoleStateEvent?
 
   lastSequenceNumber Int?
 

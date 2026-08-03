@@ -1,101 +1,147 @@
-import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
-
+import { NetworkRepository } from "../repositories/network.repository.js";
+import { NetworkQueryRepository } from "../repositories/network-query.repository.js";
 import type {
   NetworkImportData,
-  FeederImport,
-  TransformerImport,
-  PoleImport,
-  DeviceImport,
-  PoleConnectionImport,
-} from "../types";
-import { NetworkRepository } from "../repositories/network.repository";
+  FeederData,
+  DistributionTransformerData,
+  PoleData,
+  DeviceData,
+  PoleConnectionData,
+  PoleCsvRow,
+  TransformerCsvRow,
+} from "../types.js";
 
 export class NetworkService {
-  private readonly repository = new NetworkRepository();
+  private networkRepository: NetworkRepository;
+  private networkQueryRepository: NetworkQueryRepository;
 
-  async importNetwork(polesCsvPath: string, transformersCsvPath: string) {
-    const poles = await this.readCsv(polesCsvPath);
-    const transformers = await this.readCsv(transformersCsvPath);
-
-    console.log(`Loaded ${poles.length} poles`);
-    console.log(`Loaded ${transformers.length} transformers`);
-
-    const network = this.buildNetwork(poles, transformers);
-
-    await this.repository.importNetwork(network);
-
-    return {
-      success: true,
-      summary: {
-        poles: poles.length,
-        transformers: transformers.length,
-      },
-    };
+  constructor() {
+    this.networkRepository = new NetworkRepository();
+    this.networkQueryRepository = new NetworkQueryRepository();
   }
 
-  private async readCsv(filePath: string) {
-    const file = await fs.readFile(filePath);
-
-    return parse(file, {
+  async importNetwork(polesFileBuffer: Buffer, transformersFileBuffer: Buffer) {
+    // Parse CSVs
+    const transformersRecords = parse(transformersFileBuffer, {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-    });
-  }
+    }) as TransformerCsvRow[];
 
-  private buildNetwork(poles: any[], transformers: any[]): NetworkImportData {
-    const feederMap = new Map<string, FeederImport>();
+    const polesRecords = parse(polesFileBuffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+    }) as PoleCsvRow[];
 
-    for (const row of transformers) {
-      if (!feederMap.has(row.feeder_id)) {
-        feederMap.set(row.feeder_id, {
-          id: row.feeder_id,
-          substationId: null,
+    const feedersMap = new Map<string, FeederData>();
+    const transformersMap = new Map<string, DistributionTransformerData>();
+    const polesMap = new Map<string, PoleData>();
+    const devicesMap = new Map<string, DeviceData>();
+    const connections: PoleConnectionData[] = [];
+
+    // Process Transformers Registry
+    for (const record of transformersRecords) {
+      if (!record.dt_id || !record.feeder_id || !record.lat || !record.lon) {
+        throw new Error(
+          `Missing required columns in Transformers CSV. Found: ${JSON.stringify(record)}`,
+        );
+      }
+
+      if (!feedersMap.has(record.feeder_id)) {
+        feedersMap.set(record.feeder_id, {
+          id: record.feeder_id,
+          name: record.feeder_id, // Using feeder_id as name since it's not provided
+        });
+      }
+
+      if (!transformersMap.has(record.dt_id)) {
+        transformersMap.set(record.dt_id, {
+          id: record.dt_id,
+          lat: parseFloat(record.lat),
+          lon: parseFloat(record.lon),
+          feederId: record.feeder_id,
         });
       }
     }
 
-    const transformerImports: TransformerImport[] = transformers.map((row) => ({
-      id: row.dt_id,
-      feederId: row.feeder_id,
-      latitude: Number(row.lat),
-      longitude: Number(row.lon),
-      capacityKva: Number(row.capacity_kva),
-      householdsServed: Number(row.households_served),
-    }));
+    // Process Poles Registry
+    for (const record of polesRecords) {
+      if (!record.pole_id || !record.lat || !record.lon || !record.dt_id) {
+        throw new Error(
+          `Missing required columns in Poles CSV. Found: ${JSON.stringify(record)}`,
+        );
+      }
 
-    const poleImports: PoleImport[] = poles.map((row) => ({
-      id: row.pole_id,
-      latitude: Number(row.lat),
-      longitude: Number(row.lon),
-      transformerId: row.dt_id,
-      pin: row.pincode || null,
-    }));
+      if (record.feeder_id && !feedersMap.has(record.feeder_id)) {
+        feedersMap.set(record.feeder_id, {
+          id: record.feeder_id,
+          name: record.feeder_id,
+        });
+      }
 
-    const deviceImports: DeviceImport[] = poles
-      .filter((row) => row.device_id)
-      .map((row) => ({
-        id: row.device_id,
-        poleId: row.pole_id,
-      }));
+      if (!polesMap.has(record.pole_id)) {
+        polesMap.set(record.pole_id, {
+          id: record.pole_id,
+          pin: record.pincode || null,
+          lat: parseFloat(record.lat),
+          lon: parseFloat(record.lon),
+          transformerId: record.dt_id,
+        });
+      }
 
+      if (record.device_id) {
+        if (!devicesMap.has(record.device_id)) {
+          devicesMap.set(record.device_id, {
+            id: record.device_id,
+            poleId: record.pole_id,
+          });
+        }
+      }
+    }
 
-    const connectionImports: PoleConnectionImport[] = poles
-      .filter((row) => row.parent_pole_id)
-      .map((row) => ({
-        fromPoleId: row.parent_pole_id,
-        toPoleId: row.pole_id,
-      }));
+    for (const record of polesRecords) {
+      const parentPoleId = record.parent_pole_id?.trim();
+      const poleId = record.pole_id.trim();
 
+      if (
+        !parentPoleId ||
+        parentPoleId === "" ||
+        parentPoleId.toUpperCase() === "NULL"
+      ) {
+        continue;
+      }
 
-    return {
-      substations: [],
-      feeders: [...feederMap.values()],
-      transformers: transformerImports,
-      poles: poleImports,
-      devices: deviceImports,
-      connections: connectionImports,
+      if (!polesMap.has(parentPoleId)) {
+        console.warn(`Skipping connection: ${parentPoleId} -> ${poleId}`);
+        continue;
+      }
+
+      connections.push({
+        fromPoleId: parentPoleId,
+        toPoleId: poleId,
+        source: "OFFICIAL",
+        confidence: 100,
+      });
+    }
+
+    const data: NetworkImportData = {
+      feeders: Array.from(feedersMap.values()),
+      transformers: Array.from(transformersMap.values()),
+      poles: Array.from(polesMap.values()),
+      devices: Array.from(devicesMap.values()),
+      connections,
     };
+
+    return this.networkRepository.importNetwork(data);
+  }
+
+  async getNetwork() {
+    return this.networkQueryRepository.getNetwork();
+  }
+
+  async getNetworkStats() {
+    return this.networkQueryRepository.getNetworkStats();
   }
 }
