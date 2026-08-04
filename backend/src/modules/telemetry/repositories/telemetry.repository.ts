@@ -22,12 +22,11 @@ export class TelemetryRepository {
         data: event,
       });
 
-      await tx.poleHealth.upsert({
+      await tx.poleHealth.update({
         where: {
           poleId: snapshot.poleId,
         },
-        update: snapshot,
-        create: snapshot,
+        data: snapshot,
       });
     });
   }

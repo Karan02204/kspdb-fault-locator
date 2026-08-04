@@ -34,13 +34,19 @@ export class NetworkRepository {
           data: data.poles,
         });
       }
-
+      
       if (data.devices.length > 0) {
         await tx.device.createMany({
           data: data.devices,
         });
       }
-
+      
+      if (data.poleHealth.length > 0){
+        await tx.poleHealth.createMany({
+          data: data.poleHealth,
+        });
+      }
+      
       if (data.connections.length > 0) {
         await tx.poleConnection.createMany({
           data: data.connections,

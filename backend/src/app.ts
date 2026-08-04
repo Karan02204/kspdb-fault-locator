@@ -2,6 +2,7 @@ import express from "express";
 import networkRoutes from "./modules/network/routes/network.routes.js";
 import telemetryRoutes from "./modules/telemetry/routes/telemetry.route.js";
 import topologyRoutes from "./modules/topology/routes/topology.route.js";
+import localizationRoutes from "./modules/localization/routes/localization.route.js";
 import cors from "cors";
 
 const app = express();
@@ -17,4 +18,5 @@ app.get("/api/health", (_, res) => {
 app.use("/api/network", networkRoutes);
 app.use("/api/telemetry", telemetryRoutes);
 app.use("/api/topology" , topologyRoutes);
+app.use("/api/localization", localizationRoutes);
 export default app;

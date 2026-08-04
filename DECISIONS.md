@@ -1,3 +1,76 @@
+## [2026-08-04] Decision: Create Pole Health Snapshots During Network Import
+
+### What we chose
+
+A `PoleHealth` record is now created for every imported pole during the network import process rather than being created lazily when the first telemetry message is received.
+
+Each newly created snapshot is initialized with an unknown state.
+
+Example initial values:
+
+- `isEnergized = null`
+- `healthStatus = UNKNOWN`
+- `lastPoleStateEvent = null`
+- `lastSequenceNumber = null`
+- `lastHeartbeatAt = null`
+
+Telemetry processing is responsible only for updating the existing health snapshot.
+
+### What we rejected
+
+We rejected creating `PoleHealth` records only when telemetry is first received from a device.
+
+### Why
+
+A pole exists regardless of whether telemetry has been observed.
+
+Representing missing telemetry as the absence of a database record mixes two different concepts:
+
+- The physical existence of a pole.
+- The current knowledge about its state.
+
+Creating a health snapshot for every imported pole makes the unknown state explicit rather than implicit.
+
+This simplifies localization, confidence evaluation, and future analytics because every pole always has a canonical health record.
+
+It also removes the need for downstream components to distinguish between "no health record exists" and "health is currently unknown."
+
+### Assumptions this rests on
+
+- Every imported pole represents a real asset in the electrical network.
+- A pole's health should always be represented, even when no telemetry has yet been received.
+- Missing telemetry represents uncertainty (`UNKNOWN`) rather than the absence of a health snapshot.
+
+### Consequences
+
+Every pole now has a corresponding `PoleHealth` record from the moment the network is imported.
+
+Telemetry processing updates existing snapshots instead of creating new ones.
+
+Localization and confidence evaluation can safely assume that every pole has a health record and only need to reason about the pole's canonical state (`LIVE`, `DARK`, or `UNKNOWN`).
+
+## [2026-08-04] Decision: Treat Multiple Boundaries on the Same Radial Path as Telemetry Inconsistencies
+
+### What we chose
+
+The localization pipeline permits multiple fault boundaries only when they occur on independent downstream branches of the same transformer.
+
+If multiple LIVE → DARK boundaries are detected along the same root-to-leaf path, they are treated as inconsistent telemetry rather than genuine simultaneous outages.
+
+### What we rejected
+
+We rejected interpreting every detected boundary as an independent outage.
+
+### Why
+
+Distribution networks are operated radially. A fault upstream removes power from all downstream poles on that path. Therefore, multiple boundaries on a single radial path indicate stale telemetry, device malfunction, or inconsistent observations rather than multiple independent electrical faults.
+
+### Assumptions this rests on
+
+- Low-voltage networks are radial.
+- A downstream pole cannot legitimately report power when an upstream pole on the same path is de-energized.
+- Independent outages may occur simultaneously only on different branches of the topology.
+
 ## [2026-08-04] Decision: Introduce Separate Inference Strategies for Missing and Partial Topology
 
 ### What we chose

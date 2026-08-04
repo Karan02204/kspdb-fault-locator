@@ -1,3 +1,5 @@
+import { HealthStatus } from "../../../generated/prisma/enums";
+
 export interface FeederData {
   id: string;
   name: string;
@@ -27,7 +29,7 @@ export interface DeviceData {
 export interface PoleConnectionData {
   fromPoleId: string;
   toPoleId: string;
-  source: "OFFICIAL" | "MST";
+  source: "OFFICIAL" | "INFERRED";
   confidence: number;
 }
 
@@ -54,10 +56,19 @@ export interface TransformerCsvRow {
   households_served: string;
 }
 
+export interface PoleHealthData {
+  poleId: string;
+
+  isEnergized: boolean | null;
+
+  healthStatus: HealthStatus;
+}
+
 export interface NetworkImportData {
   feeders: FeederData[];
   transformers: DistributionTransformerData[];
   poles: PoleData[];
   devices: DeviceData[];
   connections: PoleConnectionData[];
+  poleHealth: PoleHealthData[];
 }

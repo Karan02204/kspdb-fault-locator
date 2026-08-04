@@ -11,6 +11,7 @@ import type {
   PoleCsvRow,
   TransformerCsvRow,
 } from "../types.js";
+import { HealthStatus } from "../../../../generated/prisma/enums.js";
 
 export class NetworkService {
   private networkRepository: NetworkRepository;
@@ -101,6 +102,13 @@ export class NetworkService {
       }
     }
 
+    const deviceByPole = new Map(
+      Array.from(devicesMap.values()).map((device) => [
+        device.poleId,
+        device.id,
+      ]),
+    );
+
     for (const record of polesRecords) {
       const parentPoleId = record.parent_pole_id?.trim();
       const poleId = record.pole_id.trim();
@@ -126,12 +134,39 @@ export class NetworkService {
       });
     }
 
+    const poleHealth = Array.from(polesMap.values()).map((pole) => ({
+      poleId: pole.id,
+
+      deviceId: deviceByPole.get(pole.id) ?? null,
+
+      isEnergized: null,
+
+      healthStatus: HealthStatus.UNKNOWN,
+
+      lastPoleStateEvent: null,
+
+      lastSequenceNumber: null,
+
+      lastDeviceTimestamp: null,
+
+      lastReceivedAt: null,
+
+      lastHeartbeatAt: null,
+
+      batteryMv: null,
+
+      rssi: null,
+
+      firmwareVersion: null,
+    }));
+
     const data: NetworkImportData = {
       feeders: Array.from(feedersMap.values()),
       transformers: Array.from(transformersMap.values()),
       poles: Array.from(polesMap.values()),
       devices: Array.from(devicesMap.values()),
       connections,
+      poleHealth,
     };
 
     return this.networkRepository.importNetwork(data);
