@@ -1,3 +1,50 @@
+## [2026-08-04] Decision: Represent Initial Pole State Using an Explicit UNKNOWN Event
+
+### What we chose
+
+Every `PoleHealth` record is initialized with:
+
+- `lastPoleStateEvent = UNKNOWN`
+
+instead of leaving the field `NULL`.
+
+The `UNKNOWN` event represents the initial state of a pole for which no operational telemetry has yet been received.
+
+### What we rejected
+
+We rejected using `NULL` to represent the absence of telemetry.
+
+### Why
+
+A `NULL` value is ambiguous and could represent:
+
+- An uninitialized record.
+- Missing data.
+- A persistence error.
+- A pole that has never transmitted telemetry.
+
+Introducing an explicit `UNKNOWN` event makes the initial operational state of every imported pole clear and intentional.
+
+This simplifies downstream logic because localization and confidence evaluation can explicitly reason about unknown observations rather than interpreting missing values.
+
+### Assumptions this rests on
+
+- Every imported pole begins in an unknown operational state.
+- The first real telemetry event replaces the `UNKNOWN` state.
+- The system never writes `UNKNOWN` again after receiving operational telemetry.
+
+### Consequences
+
+Localization maps:
+
+- `UNKNOWN` → `PoleState.UNKNOWN`
+- `POWER_LOST` → `PoleState.DARK`
+- `POWER_RESTORED` / `POLE_LIVE` → `PoleState.LIVE`
+
+Telemetry coverage can now be calculated by counting poles whose last operational state is not `UNKNOWN`.
+
+The database explicitly distinguishes between "no telemetry has ever been observed" and valid operational events.
+
 ## [2026-08-04] Decision: Create Pole Health Snapshots During Network Import
 
 ### What we chose
@@ -1817,8 +1864,8 @@ Confidence is treated as a first-class domain object.
 
 Instead of producing only a numeric score, the engine generates a structured **Confidence Report** containing:
 
-- Overall confidence score (0–100)
-- Confidence level (High / Medium / Low)
+- Overall confidence score (0.0–1.0)
+- Confidence level (Excellent / Good / Moderate / Poor)
 - Human-readable summary
 - Individual evaluation factors
 - Confidence history over the lifetime of the incident

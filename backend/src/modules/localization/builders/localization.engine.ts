@@ -58,6 +58,8 @@ export class LocalizationEngine {
         affectedPoles: subtree.affectedPoles,
 
         topologySource: connection.source,
+        
+        topologyConfidence: connection.confidence,
       });
     }
 

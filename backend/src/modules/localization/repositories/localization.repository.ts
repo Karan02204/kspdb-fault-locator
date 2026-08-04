@@ -20,6 +20,7 @@ export class LocalizationRepository {
       fromPoleId: connection.fromPoleId,
       toPoleId: connection.toPoleId,
       source: connection.source,
+      confidence: connection.confidence,
     }));
   }
 

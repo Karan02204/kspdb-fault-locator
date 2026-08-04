@@ -8,6 +8,8 @@ export interface LocalizedFault {
   affectedPoles: string[];
 
   topologySource: "OFFICIAL" | "INFERRED";
+
+  topologyConfidence: number;
 }
 
 export interface FaultBoundary {
@@ -22,6 +24,8 @@ export interface TopologyConnection {
   toPoleId: string;
 
   source: "OFFICIAL" | "INFERRED";
+
+  confidence: number;
 }
 
 export enum PoleState {

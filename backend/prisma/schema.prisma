@@ -151,7 +151,7 @@ model PoleConnection {
   toPole   Pole @relation("ToPole", fields: [toPoleId], references: [id], onDelete: Cascade)
 
   source     ConnectionSource
-  confidence Float            @default(100)
+  confidence Float            @default(1.0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

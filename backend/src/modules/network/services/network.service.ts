@@ -11,7 +11,7 @@ import type {
   PoleCsvRow,
   TransformerCsvRow,
 } from "../types.js";
-import { HealthStatus } from "../../../../generated/prisma/enums.js";
+import { HealthStatus, PoleStateEvent } from "../../../../generated/prisma/enums.js";
 
 export class NetworkService {
   private networkRepository: NetworkRepository;
@@ -130,7 +130,7 @@ export class NetworkService {
         fromPoleId: parentPoleId,
         toPoleId: poleId,
         source: "OFFICIAL",
-        confidence: 100,
+        confidence: 1.0,
       });
     }
 
@@ -143,7 +143,7 @@ export class NetworkService {
 
       healthStatus: HealthStatus.UNKNOWN,
 
-      lastPoleStateEvent: null,
+      lastPoleStateEvent: PoleStateEvent.UNKNOWN,
 
       lastSequenceNumber: null,
 

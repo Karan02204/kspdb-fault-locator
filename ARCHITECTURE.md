@@ -1,4 +1,4 @@
-                                        ┌──────────────────────────────┐
+                                                              ┌──────────────────────────────┐
                                         │     Pole Registry (CSV)      │
                                         │  (Substations, Feeders, DTs, │
                                         │   Poles, Official Topology)  │
@@ -14,15 +14,14 @@
                                Yes                                            No
                                 │                                             │
                                 ▼                                             ▼
-                   Store Official Connections                   MST + BFS Topology Inference
+                   Store Official Connections                Constrained MST + BFS Rooting
                                 │                                             │
                                 └──────────────────────┬──────────────────────┘
                                                        ▼
                                             pole_connections
-                                    (Official / Inferred + Confidence)
+                                    (Official / Inferred + Confidence*)
                                                        │
-                                                       │
-═══════════════════════════════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════════════════════════════════════════
 
                      Real Devices                              Simulator UI
                           │                                        │
@@ -41,8 +40,8 @@
                                    Telemetry Normalization Layer
                                                  │
                                                  ▼
-                                         Pole Health Store
-                                    (Current State Per Pole)
+                                          Pole Health Store
+                                   (Canonical Pole State Snapshot)
                                                  │
                                ┌─────────────────┴─────────────────┐
                                │                                   │
@@ -52,58 +51,63 @@
                                │                                   │
                                ▼                                   ▼
                       telemetry_events                    Update Pole Health Only
-                      (Historical Audit)                         (No Persistence)
+                      (Historical Audit)                         (Snapshot Update)
                                │
                                └─────────────────┬─────────────────┘
                                                  ▼
-                                       Localization Engine
+                                         Localization Engine
+                                                 │
+                           ┌─────────────────────┴─────────────────────┐
+                           ▼                                           ▼
+                  Boundary Detector                           Subtree Builder
+                           │                                           │
+                           └─────────────────────┬─────────────────────┘
+                                                 ▼
+                                           Localized Faults
                                                  │
                                                  ▼
-                                   Uses Stored pole_connections
-                                   (Never Recomputes MST Here)
+                                         Confidence Engine
+                                                 │
+        ┌─────────────────────┬─────────────────────┬─────────────────────┬─────────────────────┐
+        ▼                     ▼                     ▼                     ▼                     ▼
+ Topology Evaluator    Boundary Evaluator   Telemetry Evaluator   Sensor Health Eval.   Maintenance Evaluator
+        └─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
                                                  │
                                                  ▼
-                                    Fault Boundary Detection
+                                   Confidence Score + Breakdown
                                                  │
                                                  ▼
-                                     Incident Grouping Engine
+                                      Incident Grouping Engine
                                                  │
-                                                 ▼
-                                            Incident Record
-                                                 │
-                                                 ▼
-                                        Confidence Engine
-                                                 │
-         ┌──────────────────────┬─────────────────────┬─────────────────────┬──────────────────────┐
-         ▼                      ▼                     ▼                     ▼                      ▼
-   Topology               Telemetry             Boundary            Sensor Health           Maintenance
-   Evaluator              Evaluator             Evaluator             Evaluator              Evaluator
-         └──────────────────────┴─────────────────────┴─────────────────────┴──────────────────────┘
-                                                 │
-                                                 ▼
-                                  Confidence Score + Breakdown
-                                                 │
-                           ┌─────────────────────┴──────────────────────┐
-                           │                                            │
-                 Confidence ≥ Threshold                     Confidence < Threshold
-                           │                                            │
-                           ▼                                            ▼
-                    Create Ticket                          Monitor Incident
-                           │
-                           ▼
-                     Ticket Lifecycle
+                               ┌─────────────────┴─────────────────┐
+                               ▼                                   ▼
+                     Existing Incident?                    New Incident?
+                               │                                   │
+                              Yes                                  │
+                               │                                  ▼
+                               │                     Confidence ≥ Threshold?
+                               │                         ┌─────────┴─────────┐
+                               │                         ▼                   ▼
+                               │                  Create Incident     Ignore / Wait for
+                               │                                     More Telemetry
+                               ▼
+                       Incident Manager
+                  (Merge / Update Existing Incident)
+                               │
+                               ▼
+                         Ticket Lifecycle
         DETECTED → ACKNOWLEDGED → CREW_ASSIGNED
            → RESOLVED → VERIFIED → CLOSED
-                           │
-                           ▼
+                               │
+                               ▼
                 Verification via Live Telemetry
-                           │
-                           ▼
+                               │
+                               ▼
                   Operator Dashboard (SSE Updates)
-                           │
-          ┌────────────────┼──────────────────────┐
-          ▼                ▼                      ▼
-    Interactive Map    Incident Panel      AI Operational Brief
+                               │
+           ┌───────────────────┼──────────────────────┐
+           ▼                   ▼                      ▼
+     Interactive Map     Incident Panel      AI Operational Brief
 
 
 Electrical Infrastructure : These define the electrical network.

@@ -57,7 +57,7 @@ export class TopologyRepository {
         fromPoleId: connection.parentPoleId,
         toPoleId: connection.childPoleId,
         source: "INFERRED",
-        confidence: 100, // TODO: Compute topology confidence during confidence engine implementation.
+        confidence: 1.0, // TODO: Compute topology confidence during confidence engine implementation.
       })),
     });
   }
