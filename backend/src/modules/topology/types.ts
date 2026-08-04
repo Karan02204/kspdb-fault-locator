@@ -42,14 +42,6 @@ export interface TopologyValidationResult {
   warnings: string[];
 }
 
-export interface TopologyInferenceResult {
-  transformerId: string;
-
-  edges: InferredConnection[];
-
-  validation: TopologyValidationResult;
-}
-
 export interface GraphBuilderOptions {
   /**
    * Maximum distance (in metres) between two poles
@@ -62,4 +54,32 @@ export interface GraphBuilderOptions {
    * may connect to.
    */
   maxNeighbours: number;
+}
+
+export interface TopologyInferenceResult {
+  transformerId: string;
+
+  inferredConnections: InferredConnection[];
+
+  validation: TopologyValidationResult;
+}
+
+export interface TransformerLocation {
+  id: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface PoleAttachment {
+  parent: GraphNode;
+
+  child: GraphNode;
+
+  distance: number;
+}
+
+export enum TopologyState {
+  COMPLETE = "COMPLETE",
+  PARTIAL = "PARTIAL",
+  MISSING = "MISSING",
 }

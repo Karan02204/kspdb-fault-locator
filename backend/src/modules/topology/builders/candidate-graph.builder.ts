@@ -1,4 +1,5 @@
 import { haversineDistance } from "../utils/distance.js";
+import { TOPOLOGY_CONFIG } from "../config.js";
 import type {
   CandidateGraph,
   GraphBuilderOptions,
@@ -7,8 +8,8 @@ import type {
 } from "../types.js";
 
 const DEFAULT_OPTIONS: GraphBuilderOptions = {
-  maxNeighbourDistance: 120,
-  maxNeighbours: 3,
+  maxNeighbourDistance: TOPOLOGY_CONFIG.MAX_NEIGHBOUR_DISTANCE,
+  maxNeighbours: TOPOLOGY_CONFIG.MAX_NEIGHBOURS,
 };
 
 export class CandidateGraphBuilder {

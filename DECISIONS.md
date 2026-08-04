@@ -1,3 +1,95 @@
+## [2026-08-04] Decision: Introduce Separate Inference Strategies for Missing and Partial Topology
+
+### What we chose
+
+The topology inference module was split into two independent inference strategies.
+
+Transformers with no official topology use the existing constrained MST-based inference engine.
+
+Transformers with partially populated official topology use a dedicated topology completion engine that preserves all authoritative pole connections and infers only the missing connections required to produce a connected radial network.
+
+The appropriate strategy is selected by a topology state classifier.
+
+### What we rejected
+
+We rejected using a single inference algorithm for every transformer regardless of the completeness of its official topology.
+
+We also rejected rebuilding the entire topology and attempting to merge inferred edges with official topology afterwards, because inferred trees may not preserve existing authoritative parent-child relationships.
+
+### Why
+
+Validation against the supplied dataset revealed that transformers may contain partially populated topology.
+
+Existing official connections represent authoritative network information and should never be modified.
+
+Using separate inference strategies allows complete topology inference for missing networks while safely extending partially known topology without altering existing connections.
+
+This produces deterministic behaviour while preserving trusted infrastructure data.
+
+### Assumptions this rests on
+
+- Official topology, when present, is authoritative.
+- Official topology may be incomplete.
+- Missing topology should be inferred without modifying authoritative connections.
+- Full topology inference and partial topology completion are fundamentally different graph problems.
+
+### Consequences
+
+The topology module now supports three network states:
+
+- Complete topology
+- Partial topology
+- Missing topology
+
+Each state is handled by a dedicated processing path, improving correctness, maintainability, and extensibility while preserving the integrity of official network data.
+
+## [2026-08-03] Decision: Infer Topology Based on Completeness Rather Than Presence of Official Connections
+
+### What we chose
+
+Topology inference is triggered based on whether a transformer's official topology forms a complete radial network rather than simply checking for the existence of official pole connections.
+
+A transformer is considered complete only when the official topology connects all poles into a single valid tree. If the official topology is partial, the system preserves the existing official connections and infers only the missing connections required to complete the topology.
+
+### What we rejected
+
+We rejected the approach of skipping topology inference whenever any official pole connection exists.
+
+We also rejected replacing existing official topology with a newly inferred topology, since official data represents authoritative information that should always be preserved.
+
+### Why
+
+During implementation and validation against the provided dataset, we discovered that some transformers contain partially populated topology.
+
+For example, transformer **D-0112** contains poles where some records include `parent_pole_id` while others do not:
+
+| Pole | parent_pole_id |
+|------|----------------|
+| P-024431 | P-024430 |
+| P-024432 | P-024431 |
+| P-024433 | *(missing)* |
+
+Under the original implementation, the presence of any official connection caused topology inference to be skipped entirely, leaving isolated poles permanently disconnected.
+
+To address this, the topology module was redesigned to distinguish between **partial** and **complete** official topology.
+
+The validator now determines whether the official topology already forms a valid connected tree. Only transformers with incomplete topology are passed to the inference engine.
+
+This preserves authoritative topology while allowing missing connections to be inferred where necessary.
+
+### Assumptions this rests on
+
+- Official topology data is authoritative but may be incomplete.
+- Missing `parent_pole_id` values represent unknown topology rather than invalid poles.
+- Preserving existing official topology is preferable to replacing it with inferred results.
+- A complete topology is defined as a connected, acyclic tree spanning all poles belonging to a transformer.
+
+### Consequences
+
+This redesign makes the topology inference pipeline resilient to partially populated datasets while ensuring that trustworthy official topology is never overwritten.
+
+It also aligns the implementation with the actual characteristics of the provided dataset rather than relying solely on assumptions from the assignment brief.
+
 ## [2026-08-03] Decision Update — Incident Grouping Using Spatial and Temporal Correlation
 
 ### Chose

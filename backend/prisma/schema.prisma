@@ -32,7 +32,7 @@ enum TicketStatus {
 
 enum ConnectionSource {
   OFFICIAL
-  MST
+  INFERRED
 }
 
 enum HealthStatus {
