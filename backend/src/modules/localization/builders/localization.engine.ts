@@ -1,10 +1,11 @@
 import { BoundaryDetector } from "./boundary-detector.js";
 import { SubtreeBuilder } from "./subtree-builder.js";
 
-import type {
-  LocalizedFault,
-  PoleStatus,
-  TopologyConnection,
+import {
+  PoleState,
+  type LocalizedFault,
+  type PoleStatus,
+  type TopologyConnection,
 } from "../types.js";
 
 export class LocalizationEngine {
@@ -21,6 +22,33 @@ export class LocalizationEngine {
     connections: TopologyConnection[],
     poleStates: PoleStatus[],
   ): LocalizedFault[] {
+    const energizedPoles = poleStates.filter(
+      (pole) => pole.state === PoleState.LIVE,
+    );
+
+    if (energizedPoles.length === 0) {
+      const downstream = new Set(connections.map((c) => c.toPoleId));
+
+      const rootConnection = connections.find(
+        (c) => !downstream.has(c.fromPoleId),
+      )!;
+
+      return [
+        {
+          transformerId,
+
+          upstreamPoleId: rootConnection.fromPoleId,
+
+          downstreamPoleId: rootConnection.toPoleId,
+
+          affectedPoles: poleStates.map((pole) => pole.poleId),
+
+          topologySource: rootConnection.source,
+
+          topologyConfidence: rootConnection.confidence,
+        },
+      ];
+    }
     const boundaries = this.boundaryDetector.detect(connections, poleStates);
 
     const connectionMap = new Map(
