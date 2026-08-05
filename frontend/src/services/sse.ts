@@ -42,7 +42,10 @@ class EventService {
 
         case "incident.created":
         case "incident.updated":
-          await queryClient.invalidateQueries({ queryKey: ["incidents"] });
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["incidents"] }),
+            queryClient.invalidateQueries({ queryKey: ["tickets"] }),
+          ]);
           break;
 
         case "ticket.updated":
