@@ -1,103 +1,175 @@
 # Propel Grid Intelligence Platform
 
-An intelligent distribution grid monitoring platform that imports utility network data, automatically reconstructs missing topology, processes live telemetry, localizes outages, computes confidence scores, creates maintenance incidents and tickets, and visualizes the complete operational workflow in real time.
+An intelligent distribution grid monitoring platform that imports utility network data, automatically reconstructs missing topology, processes live telemetry, localizes electrical faults, computes confidence scores, creates maintenance incidents and tickets, and visualizes the complete operational workflow in real time.
 
 ---
 
-## Quick Start
+# 🚀 Quick Start
 
-### Prerequisites
+## Prerequisites
 
-- Node.js 20+
-- PostgreSQL
-- Docker (optional)
+- Docker Desktop (Docker Engine 24+ with Docker Compose v2)
+- Git
 
-### Backend
+---
+
+## One-Command Setup
+
+Clone the repository and start the complete platform:
 
 ```bash
-cd backend
+git clone <repository-url>
 
-npm install
+cd kspdb-fault-locator
 
-npx prisma migrate deploy
-
-npm run dev
+docker compose up --build
 ```
 
-### Frontend
+The command automatically:
 
-```bash
-cd frontend
+- Builds the backend container
+- Builds the frontend container
+- Starts PostgreSQL
+- Waits for the database to become healthy
+- Generates the Prisma Client
+- Applies all Prisma migrations
+- Starts the backend API
+- Starts the frontend application
 
-npm install
-
-npm run dev
-```
-
----
-
-## Demo Video:
-
----
-
-## Deployed URL: 
+No additional setup or manual database configuration is required.
 
 ---
 
-## Application URLs
+## 🌐 Application URLs
 
 | Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
+|----------|-----|
+| Frontend Dashboard | http://localhost:5173 |
 | Backend API | http://localhost:3000 |
-| Live Events (SSE) | http://localhost:3000/api/events |
+| Server-Sent Events | http://localhost:3000/api/events |
 
 ---
 
+## ✅ Verify Installation
 
-## What the Platform Demonstrates
+After the containers finish starting:
 
-- Import a distribution network from CSV files
-- Automatically infer missing electrical topology
-- Process live telemetry events from field devices
-- Detect heartbeat failures
-- Localize outages using topology and telemetry
-- Compute confidence scores for localized faults
-- Automatically create incidents and maintenance tickets
-- Stream live updates to the dashboard using Server-Sent Events
-- Simulate field events such as BOOT, HEARTBEAT, POWER LOSS and RESTORATION
+1. Open **http://localhost:5173**
+2. Import the provided CSV files.
+3. Verify that the electrical network appears on the map.
+4. Open the Simulator panel.
+5. Trigger:
+   - BOOT
+   - HEARTBEAT
+   - POWER LOST
+6. Verify that:
+   - Pole health updates in real time
+   - Fault localization is performed
+   - An incident is automatically created
+   - A maintenance ticket is generated
+   - The Live Event Feed updates automatically
+7. Progress the ticket through its lifecycle.
+8. Trigger **POWER RESTORED** or **Repair** and verify the network returns to normal.
+
+If all of the above work successfully, the platform has been configured correctly.
 
 ---
 
-## Demo Workflow
+# 🎥 Demo Video
 
-1. Import the provided CSV files.
-2. Verify that the network is imported and topology is inferred automatically.
-3. Select a device in the Simulator.
-4. Trigger **BOOT** and **HEARTBEAT**.
-5. Trigger **POWER LOST** to simulate an outage.
-6. Observe:
-   - Pole status updates
+**Demo Video:** *(Add Google Drive / YouTube link here)*
+
+---
+
+# 🌍 Live Deployment
+
+**Frontend:** *https://kspdb-fault-locator.vercel.app/*
+
+**Backend API:** *https://propel-grid-intelligence-backend.onrender.com*
+
+---
+
+# ✨ Platform Features
+
+- Import electrical network data from CSV files
+- Automatic network validation during import
+- Automatic topology reconstruction for missing LT networks
+- Interactive GIS network visualization
+- Live telemetry ingestion
+- Duplicate and out-of-order telemetry handling
+- Pole health monitoring
+- Heartbeat timeout detection
+- Fault localization using electrical topology
+- Confidence scoring with explainable breakdown
+- Automatic incident grouping
+- Automatic maintenance ticket creation
+- Ticket lifecycle management
+- Live dashboard updates using Server-Sent Events
+- Interactive fault simulator
+- AI Operational Brief generation
+
+---
+
+# 🧪 Demo Workflow
+
+1. Import the provided Transformer and Pole registry CSV files.
+2. Verify the imported electrical network.
+3. Confirm missing topology is inferred automatically.
+4. Select a telemetry device in the Simulator.
+5. Send a **BOOT** event.
+6. Send a **HEARTBEAT** event.
+7. Inject a **POWER LOST** event.
+8. Observe:
+   - Live telemetry ingestion
+   - Pole health updates
+   - Fault localization
+   - Confidence calculation
    - Incident creation
-   - Automatic ticket creation
-   - Live event feed
-7. Advance the ticket through its lifecycle.
-8. Trigger **POWER RESTORED** or **Repair** to restore service.
+   - Ticket generation
+   - Live dashboard updates
+9. Advance the maintenance ticket through its lifecycle.
+10. Restore power using **POWER RESTORED** or **Repair**.
 
 ---
 
-# Documentation Map
+# 📚 Documentation Map
 
-| Section | Description |
-|----------|-------------|
-| Project Architecture | High-level system architecture and design |
-| Features | Overview of implemented functionality |
-| Backend Architecture | Modules, services and data flow |
-| Frontend Architecture | Dashboard structure and UI components |
-| API Reference | REST endpoints and SSE events |
-| Design Decisions | Engineering choices and assumptions |
-| Future Improvements | Potential enhancements |
+| Document | Purpose |
+|----------|---------|
+| README.md | Project overview, quick start, demo workflow and links |
+| architecture.md | System architecture, algorithms, data flow and API design |
+| deployment.md | Deployment guide, environment variables and troubleshooting |
+| ai_usage.md | AI-assisted development process and validation approach |
 
 ---
 
-> A reviewer can import the sample network, simulate outages, observe automatic topology inference, fault localization, incident generation, ticket management, and real-time dashboard updates using the steps above.
+# 🏗️ Technology Stack
+
+**Frontend**
+
+- React
+- TypeScript
+- Tailwind CSS
+- React Query
+- React Leaflet
+- Server-Sent Events
+
+**Backend**
+
+- Node.js
+- Express
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+
+**Infrastructure**
+
+- Docker
+- Docker Compose
+- Neon PostgreSQL
+- Render
+- Vercel
+
+---
+
+> A reviewer can clone the repository, execute a single `docker compose up --build` command, import the provided sample network, simulate electrical faults, observe automatic topology inference, real-time fault localization, confidence evaluation, incident creation, ticket management, and live dashboard updates without any additional configuration.
