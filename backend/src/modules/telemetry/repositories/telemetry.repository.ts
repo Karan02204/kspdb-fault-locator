@@ -115,4 +115,12 @@ export class TelemetryRepository {
       },
     });
   }
+
+  async getPoleHealthByDeviceId(deviceId: string) {
+    return prisma.poleHealth.findFirst({
+      where: {
+        deviceId,
+      },
+    });
+  }
 }

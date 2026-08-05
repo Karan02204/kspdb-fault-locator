@@ -7,6 +7,7 @@ import incidentRoutes from "./modules/incident/routes/incident.route.js";
 import { HeartbeatMonitor } from "./modules/telemetry/builders/heartbeat-monitor.js";
 import ticketRoutes from "./modules/incident/routes/ticket.route.js";
 import sseRoutes from "./modules/events/routes/sse.routes.js";
+import simulatorRoutes from "./modules/simulator/routes/simulator.route.js";
 import cors from "cors";
 
 const app = express();
@@ -29,4 +30,5 @@ app.use("/api/localization", localizationRoutes);
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/events", sseRoutes);
+app.use("/api/simulator", simulatorRoutes);
 export default app;

@@ -2,11 +2,22 @@ import type { Incident } from "../../types/incident";
 
 interface Props {
   incident: Incident;
+
+  selected: boolean;
+
+  onSelect: (incident: Incident) => void;
 }
 
-export default function IncidentCard({ incident }: Props) {
+export default function IncidentCard({ incident, selected, onSelect }: Props) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-4 transition hover:shadow-md cursor-pointer">
+    <div
+      onClick={() => onSelect(incident)}
+      className={`cursor-pointer rounded-xl border p-4 transition hover:shadow-md ${
+        selected
+          ? "border-red-500 bg-red-50 shadow-lg"
+          : "border-gray-200 bg-white"
+      }`}
+    >
       <div className="flex items-center justify-between">
         <h3 className="font-semibold">{incident.incidentNumber}</h3>
 
@@ -21,8 +32,7 @@ export default function IncidentCard({ incident }: Props) {
         </div>
 
         <div>
-          <strong>Fault Boundary:</strong> {incident.boundaryFromPoleId}
-          {" → "}
+          <strong>Fault Boundary:</strong> {incident.boundaryFromPoleId} →{" "}
           {incident.boundaryToPoleId}
         </div>
 

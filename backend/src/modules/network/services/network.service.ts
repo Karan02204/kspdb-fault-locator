@@ -1,6 +1,7 @@
 import { parse } from "csv-parse/sync";
 import { NetworkRepository } from "../repositories/network.repository.js";
 import { NetworkQueryRepository } from "../repositories/network-query.repository.js";
+import { TopologyService } from "../../topology/services/topology.service.js";
 import type {
   NetworkImportData,
   FeederData,
@@ -16,6 +17,7 @@ import { HealthStatus, PoleStateEvent } from "../../../../generated/prisma/enums
 export class NetworkService {
   private networkRepository: NetworkRepository;
   private networkQueryRepository: NetworkQueryRepository;
+  private topologyService = new TopologyService();
 
   constructor() {
     this.networkRepository = new NetworkRepository();
@@ -169,7 +171,14 @@ export class NetworkService {
       poleHealth,
     };
 
-    return this.networkRepository.importNetwork(data);
+    await this.networkRepository.importNetwork(data);
+
+    // Automatically infer missing topology
+    await this.topologyService.inferMissingTopology();
+
+    return {
+      success: true,
+    };
   }
 
   async getNetwork() {

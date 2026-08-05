@@ -1,7 +1,9 @@
 import { api } from "./axios";
 
 export async function updateTicketStatus(ticketId: string, status: string) {
-  const { data } = await api.patch(`/tickets/${ticketId}/${status}`);
+  const { data } = await api.patch(`/tickets/${ticketId}/status`, {
+    status,
+  });
 
   return data;
 }

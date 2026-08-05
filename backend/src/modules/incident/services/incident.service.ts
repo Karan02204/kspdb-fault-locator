@@ -26,6 +26,18 @@ export class IncidentService {
       await this.localizationService.localizeTransformer(transformerId);
 
     if (localizedFaults.length === 0) {
+      const openIncidents =
+        await this.incidentRepository.findOpenIncidents(transformerId);
+
+      for (const incident of openIncidents) {
+        await this.incidentRepository.deleteIncident(incident.id);
+
+        eventBus.publish("incident.updated", {
+          id: incident.id,
+          resolved: true,
+        });
+      }
+
       return [];
     }
 
@@ -91,9 +103,9 @@ export class IncidentService {
         const incident =
           await this.incidentRepository.createIncident(candidate);
 
+        await this.incidentRepository.createTicket(incident.id);
         eventBus.publish("incident.created", incident);
 
-        await this.incidentRepository.createTicket(incident.id);
 
         processedIncidents.push(incident);
 

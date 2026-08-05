@@ -1,4 +1,4 @@
-import { useTickets } from "../../hooks/useTicket";
+import { useTickets } from "../../hooks/useTickets";
 import TicketCard from "./ticketCard";
 
 export default function TicketPanel() {

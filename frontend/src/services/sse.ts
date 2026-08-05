@@ -1,10 +1,9 @@
 import { queryClient } from "../lib/query-client";
-type EventHandler = (payload: any) => void;
 
+type EventHandler = (payload: any) => void;
 
 class EventService {
   private source: EventSource | null = null;
-
   private handlers = new Map<string, EventHandler[]>();
 
   connect() {
@@ -32,27 +31,20 @@ class EventService {
       const payload = JSON.parse(event.data);
 
       const handlers = this.handlers.get(eventName) ?? [];
-
       handlers.forEach((handler) => handler(payload));
 
       switch (eventName) {
         case "telemetry.received":
-          await queryClient.invalidateQueries({
-            queryKey: ["network"],
-          });
+          await queryClient.invalidateQueries({ queryKey: ["network"] });
           break;
 
         case "incident.created":
         case "incident.updated":
-          await queryClient.invalidateQueries({
-            queryKey: ["incidents"],
-          });
+          await queryClient.invalidateQueries({ queryKey: ["incidents"] });
           break;
 
         case "ticket.updated":
-          await queryClient.invalidateQueries({
-            queryKey: ["tickets"],
-          });
+          await queryClient.invalidateQueries({ queryKey: ["tickets"] });
           break;
       }
     });
@@ -60,9 +52,7 @@ class EventService {
 
   on(event: string, handler: EventHandler) {
     const handlers = this.handlers.get(event) ?? [];
-
     handlers.push(handler);
-
     this.handlers.set(event, handlers);
   }
 }

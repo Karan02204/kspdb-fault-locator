@@ -1,7 +1,14 @@
-import { useIncidents } from "../../hooks/useIncident";
-import IncidentCard from "./incidentCard";
+import { useIncidents } from "../../hooks/useIncidents";
+import type { Incident } from "../../types/incident";
+import IncidentCard from "./IncidentCard";
 
-export default function IncidentPanel() {
+interface Props {
+  selectedIncident: Incident | null;
+
+  onSelect: (incident: Incident) => void;
+}
+
+export default function IncidentPanel({ selectedIncident, onSelect }: Props) {
   const { data, isLoading } = useIncidents();
 
   return (
@@ -18,7 +25,12 @@ export default function IncidentPanel() {
 
       <div className="space-y-4">
         {data?.map((incident) => (
-          <IncidentCard key={incident.id} incident={incident} />
+          <IncidentCard
+            key={incident.id}
+            incident={incident}
+            selected={selectedIncident?.id === incident.id}
+            onSelect={onSelect}
+          />
         ))}
       </div>
     </div>

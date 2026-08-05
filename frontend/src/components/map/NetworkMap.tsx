@@ -6,8 +6,13 @@ import {
   Tooltip,
 } from "react-leaflet";
 import type { Pole } from "../../types/network";
+import type { Incident } from "../../types/incident";
 
 import { useNetwork } from "../../hooks/useNetwork";
+
+interface Props {
+  selectedIncident: Incident | null;
+}
 
 function getPoleColor(pole: any) {
   const health = pole.health;
@@ -40,7 +45,7 @@ function getPoleColor(pole: any) {
   return "#16a34a"; // Healthy
 }
 
-export default function NetworkMap() {
+export default function NetworkMap({ selectedIncident }: Props) {
   const { data, isLoading, isError } = useNetwork();
 
   if (isLoading) {
@@ -79,7 +84,7 @@ export default function NetworkMap() {
   });
 
   return (
-    <div className="relative h-[820px] rounded-2xl overflow-hidden bg-white shadow-lg">
+    <div className="relative h-[820px] rounded-2xl overflow-hidden bg-white shadow-lg m-5 ">
       <MapContainer center={center} zoom={18} className="h-full w-full">
         <TileLayer
           attribution="© OpenStreetMap © CARTO"
@@ -120,7 +125,11 @@ export default function NetworkMap() {
 
         {/* Poles */}
         {data.poles.map((pole: any) => {
-          const color = getPoleColor(pole);
+          let color = getPoleColor(pole);
+
+          if (selectedIncident?.affectedPoles.includes(pole.id)) {
+            color = "#9333ea";
+          }
 
           return (
             <CircleMarker
@@ -156,6 +165,22 @@ export default function NetworkMap() {
           if (!from || !to) {
             return null;
           }
+          
+
+          let lineColor =
+            connection.source === "OFFICIAL" ? "#2563eb" : "#9333ea";
+
+          let weight = 4;
+
+          if (
+            selectedIncident &&
+            connection.fromPoleId === selectedIncident.boundaryFromPoleId &&
+            connection.toPoleId === selectedIncident.boundaryToPoleId
+          ) {
+            lineColor = "#ef4444";
+
+            weight = 8;
+          }
 
           return (
             <Polyline
@@ -165,9 +190,9 @@ export default function NetworkMap() {
                 [to.lat, to.lon],
               ]}
               pathOptions={{
-                color: connection.source === "OFFICIAL" ? "#2563eb" : "#9333ea",
+                color: lineColor,
 
-                weight: 4,
+                weight,
 
                 dashArray: connection.source === "OFFICIAL" ? undefined : "8 8",
               }}

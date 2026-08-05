@@ -324,4 +324,23 @@ export class IncidentRepository {
       },
     });
   }
+
+  async resolveIncident(incidentId: string): Promise<void> {
+    await prisma.incident.update({
+      where: {
+        id: incidentId,
+      },
+      data: {
+        isTicketCreated: false,
+      },
+    });
+  }
+
+  async deleteIncident(incidentId: string): Promise<void> {
+    await prisma.incident.delete({
+      where: {
+        id: incidentId,
+      },
+    });
+  }
 }
