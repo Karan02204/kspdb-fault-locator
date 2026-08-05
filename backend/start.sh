@@ -7,4 +7,4 @@ echo "Running database migrations..."
 npx prisma migrate deploy
 
 echo "Starting backend..."
-npm run dev
+exec npm run dev

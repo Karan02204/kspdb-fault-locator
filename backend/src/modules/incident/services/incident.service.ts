@@ -105,6 +105,9 @@ export class IncidentService {
 
         await this.incidentRepository.createTicket(incident.id);
         eventBus.publish("incident.created", incident);
+        eventBus.publish("ticket.updated", {
+          incidentId: incident.id,
+        });
 
 
         processedIncidents.push(incident);
