@@ -32,6 +32,7 @@ export interface InferredConnection {
   parentPoleId: string;
   childPoleId: string;
   distance: number;
+  confidence: number;
 }
 
 export interface TopologyValidationResult {

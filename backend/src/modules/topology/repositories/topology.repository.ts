@@ -46,6 +46,7 @@ export class TopologyRepository {
       parentPoleId: connection.fromPoleId,
       childPoleId: connection.toPoleId,
       distance: 0, // Distance isn't needed for completeness checking.
+      confidence: connection.confidence,
     }));
   }
 
@@ -57,7 +58,7 @@ export class TopologyRepository {
         fromPoleId: connection.parentPoleId,
         toPoleId: connection.childPoleId,
         source: "INFERRED",
-        confidence: 1.0, // TODO: Compute topology confidence during confidence engine implementation.
+        confidence: connection.confidence,
       })),
     });
   }

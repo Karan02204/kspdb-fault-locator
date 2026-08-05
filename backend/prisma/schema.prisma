@@ -214,6 +214,8 @@ model PoleHealth {
 
   lastSequenceNumber Int?
 
+  currentBootSession Int @default(0)
+
   lastDeviceTimestamp DateTime?
 
   lastReceivedAt DateTime?
@@ -253,6 +255,8 @@ model TelemetryEvent {
 
   sequenceNumber Int
 
+  bootSession Int @default(0)
+
   batteryMv Int?
 
   rssi Int?
@@ -263,7 +267,7 @@ model TelemetryEvent {
 
   createdAt DateTime @default(now())
 
-  @@unique([deviceId, sequenceNumber])
+  @@unique([deviceId, bootSession, sequenceNumber])
   @@index([poleId])
   @@index([deviceId])
   @@index([eventType])

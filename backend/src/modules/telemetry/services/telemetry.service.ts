@@ -1,4 +1,4 @@
-import { HealthStatus } from "../../../../generated/prisma/enums.js";
+import { EventType, HealthStatus } from "../../../../generated/prisma/enums.js";
 import { TelemetryRepository } from "../repositories/telemetry.repository.js";
 import type { NormalizedTelemetry } from "../types.js";
 import { PoleStateEvent } from "../types.js";
@@ -18,7 +18,18 @@ export class TelemetryService {
     const existing = await this.repository.getPoleHealth(device.poleId);
 
     // Ignore duplicate or out-of-order packets
+    const isBootEvent = telemetry.originalEvent === EventType.BOOT;
+
+    const bootSession = isBootEvent
+      ? (existing?.currentBootSession ?? 0) + 1
+      : (existing?.currentBootSession ?? 0);
+
+    if (isBootEvent && telemetry.sequenceNumber !== 0) {
+      throw new Error("BOOT event must have sequence number 0.");
+    }
+
     if (
+      !isBootEvent &&
       existing &&
       existing.lastSequenceNumber !== null &&
       telemetry.sequenceNumber <= existing.lastSequenceNumber
@@ -85,6 +96,8 @@ export class TelemetryService {
 
         sequenceNumber: telemetry.sequenceNumber,
 
+        bootSession,
+
         batteryMv: telemetry.batteryMv,
 
         rssi: telemetry.rssi,
@@ -108,6 +121,8 @@ export class TelemetryService {
         lastPoleStateEvent: telemetry.event,
 
         lastSequenceNumber: telemetry.sequenceNumber,
+
+        currentBootSession: bootSession,
 
         lastDeviceTimestamp: telemetry.deviceTimestamp,
 

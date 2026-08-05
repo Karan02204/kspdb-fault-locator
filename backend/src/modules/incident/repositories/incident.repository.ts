@@ -191,17 +191,69 @@ export class IncidentRepository {
     });
   }
 
-  async updateTicketStatus(
-    ticketId: string,
-    status: TicketStatus,
-  ): Promise<void> {
-    await prisma.ticket.update({
+  async getTickets() {
+    return prisma.ticket.findMany({
+      include: {
+        incident: true,
+      },
+
+      orderBy: {
+        detectedAt: "desc",
+      },
+    });
+  }
+
+  async getTicketById(ticketId: string) {
+    return prisma.ticket.findUnique({
       where: {
         id: ticketId,
       },
 
-      data: {
-        status,
+      include: {
+        incident: true,
+      },
+    });
+  }
+
+  async updateTicketStatus(
+    ticketId: string,
+    data: {
+      status: TicketStatus;
+
+      acknowledgedAt?: Date;
+
+      crewAssignedAt?: Date;
+
+      resolvedAt?: Date;
+
+      verifiedAt?: Date;
+
+      closedAt?: Date;
+    },
+  ) {
+    return prisma.ticket.update({
+      where: {
+        id: ticketId,
+      },
+
+      data,
+    });
+  }
+
+  async getActiveTickets() {
+    return prisma.ticket.findMany({
+      where: {
+        status: {
+          notIn: [TicketStatus.VERIFIED, TicketStatus.CLOSED],
+        },
+      },
+
+      include: {
+        incident: true,
+      },
+
+      orderBy: {
+        detectedAt: "desc",
       },
     });
   }

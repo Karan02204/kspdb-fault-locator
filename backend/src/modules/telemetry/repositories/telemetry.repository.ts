@@ -1,3 +1,4 @@
+import { EventType, HealthStatus } from "../../../../generated/prisma/enums";
 import { prisma } from "../../../lib/prisma";
 
 export class TelemetryRepository {
@@ -45,6 +46,73 @@ export class TelemetryRepository {
         },
         data: snapshot,
       });
+    });
+  }
+
+  async getExpiredPoleHealth(timeoutMinutes: number) {
+    const cutoff = new Date(Date.now() - timeoutMinutes * 60 * 1000);
+
+    return prisma.poleHealth.findMany({
+      where: {
+        deviceId: {
+          not: null,
+        },
+
+        lastHeartbeatAt: {
+          not: null,
+          lt: cutoff,
+        },
+
+        healthStatus: {
+          not: HealthStatus.OFFLINE,
+        },
+      },
+
+      include: {
+        pole: {
+          select: {
+            transformerId: true,
+          },
+        },
+      },
+    });
+  }
+
+  async markHeartbeatTimeout(poleId: string) {
+    return prisma.poleHealth.update({
+      where: {
+        poleId,
+      },
+
+      data: {
+        healthStatus: HealthStatus.OFFLINE,
+      },
+    });
+  }
+
+  async saveHeartbeatTimeout(poleId: string, deviceId: string) {
+    const now = new Date();
+
+    await prisma.telemetryEvent.create({
+      data: {
+        poleId,
+
+        deviceId,
+
+        eventType: EventType.HEARTBEAT_TIMEOUT,
+
+        isEnergized: null,
+
+        deviceTimestamp: now,
+
+        receivedAt: now,
+
+        sequenceNumber: -1,
+
+        rawPayload: {
+          generatedBy: "HeartbeatMonitor",
+        },
+      },
     });
   }
 }

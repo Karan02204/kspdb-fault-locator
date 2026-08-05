@@ -6,8 +6,10 @@ import type {
 } from "../types.js";
 
 import { haversineDistance } from "../utils/distance.js";
+import { TopologyConfidenceBuilder } from "./topology-confidence.builder.js";
 
 export class PartialTopologyCompletionEngine {
+  private confidenceBuilder = new TopologyConfidenceBuilder();
   private buildAdjacency(
     connections: InferredConnection[],
   ): Map<string, string[]> {
@@ -156,10 +158,32 @@ export class PartialTopologyCompletionEngine {
     while (connected.size < poles.length) {
       const attachment = this.findBestAttachment(poles, connected);
 
+      const maxDistance = Math.max(
+        ...poles.flatMap((pole) =>
+          poles
+            .filter((p) => p.id !== pole.id)
+            .map((p) =>
+              haversineDistance(
+                pole.latitude,
+                pole.longitude,
+                p.latitude,
+                p.longitude,
+              ),
+            ),
+        ),
+      );
+
       const connection: InferredConnection = {
         parentPoleId: attachment.parent.id,
+
         childPoleId: attachment.child.id,
+
         distance: attachment.distance,
+
+        confidence: this.confidenceBuilder.calculate(
+          attachment.distance,
+          maxDistance,
+        ),
       };
 
       inferredConnections.push(connection);
