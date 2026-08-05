@@ -2,9 +2,12 @@ import { TicketStatus } from "../../../../generated/prisma/enums.js";
 import { eventBus } from "../../events/builders/event-bus.js";
 
 import { IncidentRepository } from "../repositories/incident.repository.js";
+import { LocalizationService } from "../../localization/services/localization.service.js";
 
 export class TicketService {
   private repository = new IncidentRepository();
+
+  private localizationService = new LocalizationService();
 
   async getTickets() {
     return this.repository.getTickets();
@@ -61,6 +64,14 @@ export class TicketService {
         break;
 
       case TicketStatus.RESOLVED:
+        const localizedFaults =
+          await this.localizationService.localizeTransformer(
+            ticket.incident.transformerId,
+          );
+
+        if (localizedFaults.length > 0) {
+          throw new Error("Power has not been restored. Fault still detected.");
+        }
         updateData.resolvedAt = now;
         break;
 
@@ -73,7 +84,20 @@ export class TicketService {
         break;
     }
 
-    const updatedTicket = await this.repository.updateTicketStatus(ticketId, updateData);
+    const updatedTicket = await this.repository.updateTicketStatus(
+      ticketId,
+      updateData,
+    );
+
+    if (newStatus === TicketStatus.CLOSED) {
+      await this.repository.deleteIncidentByTicket(ticketId);
+
+      eventBus.publish("incident.updated", {
+        id: updatedTicket.incidentId,
+        closed: true,
+      });
+    }
+
     eventBus.publish("ticket.updated", updatedTicket);
 
     return updatedTicket;

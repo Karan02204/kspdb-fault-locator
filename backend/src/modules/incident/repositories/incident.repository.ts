@@ -343,4 +343,22 @@ export class IncidentRepository {
       },
     });
   }
+
+  async deleteIncidentByTicket(ticketId: string): Promise<void> {
+    const ticket = await prisma.ticket.findUnique({
+      where: {
+        id: ticketId,
+      },
+    });
+
+    if (!ticket) {
+      throw new Error("Ticket not found.");
+    }
+
+    await prisma.incident.delete({
+      where: {
+        id: ticket.incidentId,
+      },
+    });
+  }
 }
