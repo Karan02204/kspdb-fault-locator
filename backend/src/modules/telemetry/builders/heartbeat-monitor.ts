@@ -1,6 +1,7 @@
 import { TelemetryRepository } from "../repositories/telemetry.repository.js";
 
 import { IncidentService } from "../../incident/services/incident.service.js";
+import { HealthStatus } from "../../../../generated/prisma/enums.js";
 
 export class HeartbeatMonitor {
   private static readonly HEARTBEAT_TIMEOUT_MINUTES = 15;
@@ -31,6 +32,9 @@ export class HeartbeatMonitor {
     );
 
     for (const pole of expiredPoleHealth) {
+      if (pole.healthStatus === HealthStatus.OFFLINE) {
+        continue;
+      }
       await this.repository.saveHeartbeatTimeout(pole.poleId, pole.deviceId!);
       await this.repository.markHeartbeatTimeout(pole.poleId);
     }

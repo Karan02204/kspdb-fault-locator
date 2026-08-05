@@ -86,6 +86,8 @@ export class TelemetryRepository {
 
       data: {
         healthStatus: HealthStatus.OFFLINE,
+
+        lastHeartbeatAt: null,
       },
     });
   }
