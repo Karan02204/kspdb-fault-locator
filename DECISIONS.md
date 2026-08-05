@@ -1,3 +1,72 @@
+# Known Limitations and Future Improvements
+
+The following limitations are known at the time of submission. They are documented intentionally rather than omitted.
+
+## 1. AI Operational Brief
+
+The AI operational brief currently produces generic summaries in some scenarios and is not yet fully integrated with the live incident context. The deterministic localization, confidence evaluation, incident generation, and ticket workflow continue to function correctly, but the generated narrative may not accurately reflect the current operational state.
+
+**Planned improvement**
+- Construct prompts directly from the active incident repository and live telemetry.
+- Include confidence breakdown, affected poles, and ticket status in the AI context.
+- Add fallback summaries derived entirely from structured system data.
+
+---
+
+## 2. Real-time Ticket Synchronization
+
+Ticket creation is reflected immediately through Server-Sent Events. However, under certain incident resolution paths, ticket removal may require a subsequent React Query refetch (such as a window focus event) before disappearing from the dashboard.
+
+This affects only UI synchronization; the backend state remains correct.
+
+**Planned improvement**
+- Publish explicit incident/ticket deletion events.
+- Refresh both incident and ticket queries from a single event stream.
+
+---
+
+## 3. Production SSE Configuration
+
+The local deployment fully supports Server-Sent Events. Production deployment requires the frontend EventSource endpoint to reference the deployed backend URL through environment configuration. Until configured, live dashboard updates may not function correctly on the hosted deployment.
+
+**Planned improvement**
+- Configure EventSource using `VITE_API_URL`.
+- Add production deployment validation for SSE connectivity.
+
+---
+
+## 4. Heartbeat Automation
+
+The simulator currently supports manual generation of heartbeat telemetry through the operator interface. Continuous periodic heartbeat generation has not yet been implemented.
+
+This does not affect localization or confidence evaluation but limits long-duration simulation scenarios.
+
+**Planned improvement**
+- Background heartbeat scheduler.
+- Configurable heartbeat intervals.
+- Automatic timeout demonstrations.
+
+---
+
+## 5. Simulator Coverage
+
+The simulator currently supports the primary outage workflows (power loss, restoration, span faults, transformer faults, repairs, and manual telemetry events).
+
+Additional operational scenarios described in the architecture documentation remain future work, including:
+- Scheduled maintenance simulation
+- Maintenance overrun simulation
+- Automatic firmware heartbeat timeout scenarios
+- Large-scale simultaneous outage generation
+
+---
+
+## 6. Performance Validation
+
+The localization algorithm has been validated functionally using synthetic scenarios. Large-scale benchmarking under production telemetry volumes has not yet been completed.
+
+Future work includes benchmarking ingestion throughput, localization latency, and SSE scalability under burst traffic.
+
+
 ## [2026-08-04] Decision: Represent Initial Pole State Using an Explicit UNKNOWN Event
 
 ### What we chose
