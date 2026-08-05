@@ -85,8 +85,6 @@ If all of the above work successfully, the platform has been configured correctl
 
 **Frontend:** *https://kspdb-fault-locator.vercel.app/*
 
-**Backend API:** *https://propel-grid-intelligence-backend.onrender.com*
-
 ---
 
 # ✨ Platform Features
