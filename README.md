@@ -36,6 +36,14 @@ npm run dev
 
 ---
 
+## Demo Video:
+
+---
+
+## Deployed URL: 
+
+---
+
 ## Application URLs
 
 | Service | URL |
@@ -46,17 +54,6 @@ npm run dev
 
 ---
 
-## Demo Video
-
-> **Demo Video:** *(Paste your Loom / YouTube / Drive link here)*
-
-Example:
-
-```
-https://loom.com/share/xxxxxxxxxxxxxxxx
-```
-
----
 
 ## What the Platform Demonstrates
 
