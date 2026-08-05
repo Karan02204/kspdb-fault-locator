@@ -46,7 +46,7 @@ services:
       - "5173:5173"
     environment:
       # Inject the backend URL for the frontend to consume
-      - VITE_API_URL=http://localhost:3000
+      - VITE_API_URL=http://localhost:3000/api
     depends_on:
       - backend
     # Mount local frontend folder to enable hot-reloading inside the container
