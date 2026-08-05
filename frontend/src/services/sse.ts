@@ -2,6 +2,8 @@ import { queryClient } from "../lib/query-client";
 
 type EventHandler = (payload: any) => void;
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+
 class EventService {
   private source: EventSource | null = null;
   private handlers = new Map<string, EventHandler[]>();
@@ -9,7 +11,7 @@ class EventService {
   connect() {
     if (this.source) return;
 
-    this.source = new EventSource("http://localhost:3000/api/events");
+    this.source = new EventSource(`${API_URL}/events`);
 
     this.source.onopen = () => {
       console.log("✅ SSE Connected");
