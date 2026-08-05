@@ -4,7 +4,7 @@ import { TicketService } from "../services/ticket.service.js";
 import { updateTicketSchema } from "../validators/update-ticket.schema.js";
 
 interface TicketParams {
-  Id: string;
+  id: string;
 }
 
 export class TicketController {
@@ -36,7 +36,7 @@ export class TicketController {
 
   getTicketById = async (req: Request<TicketParams>, res: Response, next: NextFunction) => {
     try {
-      const ticket = await this.ticketService.getTicketById(req.params.Id);
+      const ticket = await this.ticketService.getTicketById(req.params.id);
 
       return res.status(200).json(ticket);
     } catch (error) {
@@ -49,7 +49,7 @@ export class TicketController {
       const body = updateTicketSchema.parse(req.body);
 
       const ticket = await this.ticketService.updateTicketStatus(
-        req.params.Id,
+        req.params.id,
         body.status,
       );
 

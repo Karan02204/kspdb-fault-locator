@@ -1,4 +1,5 @@
 import { TicketStatus } from "../../../../generated/prisma/enums.js";
+import { eventBus } from "../../events/builders/event-bus.js";
 
 import { IncidentRepository } from "../repositories/incident.repository.js";
 
@@ -72,7 +73,10 @@ export class TicketService {
         break;
     }
 
-    return this.repository.updateTicketStatus(ticketId, updateData);
+    const updatedTicket = await this.repository.updateTicketStatus(ticketId, updateData);
+    eventBus.publish("ticket.updated", updatedTicket);
+
+    return updatedTicket;
   }
 
   private validateTransition(current: TicketStatus, next: TicketStatus) {

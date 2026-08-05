@@ -167,6 +167,73 @@ export class IncidentRepository {
     };
   }
 
+  async getIncidents() {
+    return prisma.incident.findMany({
+      include: {
+        ticket: true,
+        transformer: true,
+      },
+
+      orderBy: {
+        detectedAt: "desc",
+      },
+    });
+  }
+
+  async getIncidentById(incidentId: string) {
+    return prisma.incident.findUnique({
+      where: {
+        id: incidentId,
+      },
+
+      include: {
+        ticket: true,
+        transformer: true,
+      },
+    });
+  }
+
+  async getActiveIncidents() {
+    return prisma.incident.findMany({
+      where: {
+        OR: [
+          {
+            ticket: null,
+          },
+          {
+            ticket: {
+              status: {
+                notIn: [TicketStatus.VERIFIED, TicketStatus.CLOSED],
+              },
+            },
+          },
+        ],
+      },
+
+      include: {
+        ticket: true,
+        transformer: true,
+      },
+
+      orderBy: {
+        detectedAt: "desc",
+      },
+    });
+  }
+
+  async getIncidentHistory() {
+    return prisma.incident.findMany({
+      include: {
+        ticket: true,
+        transformer: true,
+      },
+
+      orderBy: {
+        detectedAt: "desc",
+      },
+    });
+  }
+
   async createTicket(incidentId: string): Promise<void> {
     const count = await prisma.ticket.count();
 

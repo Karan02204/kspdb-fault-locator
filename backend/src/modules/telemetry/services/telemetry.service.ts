@@ -3,6 +3,7 @@ import { TelemetryRepository } from "../repositories/telemetry.repository.js";
 import type { NormalizedTelemetry } from "../types.js";
 import { PoleStateEvent } from "../types.js";
 import { IncidentService } from "../../incident/services/incident.service.js";
+import { eventBus } from "../../events/builders/event-bus.js";
 
 export class TelemetryService {
   private repository = new TelemetryRepository();
@@ -142,6 +143,14 @@ export class TelemetryService {
         healthStatus,
       },
     );
+
+    eventBus.publish("telemetry.received", {
+      poleId: device.poleId,
+
+      event: telemetry.event,
+
+      timestamp: now,
+    });
 
     if (
       telemetry.event === PoleStateEvent.POLE_LIVE ||

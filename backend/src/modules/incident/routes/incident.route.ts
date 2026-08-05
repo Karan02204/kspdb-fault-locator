@@ -6,9 +6,14 @@ const router = Router();
 
 const controller = new IncidentController();
 
-router.post(
-  "/transformers/:transformerId/process",
-  controller.processTransformer.bind(controller),
-);
+
+router.get("/", controller.getIncidents);
+
+router.get("/active", controller.getActiveIncidents);
+
+router.get("/history", controller.getHistory);
+
+router.get("/:id", controller.getIncidentById);
+
 
 export default router;

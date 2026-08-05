@@ -6,6 +6,7 @@ import localizationRoutes from "./modules/localization/routes/localization.route
 import incidentRoutes from "./modules/incident/routes/incident.route.js";
 import { HeartbeatMonitor } from "./modules/telemetry/builders/heartbeat-monitor.js";
 import ticketRoutes from "./modules/incident/routes/ticket.route.js";
+import sseRoutes from "./modules/events/routes/sse.routes.js";
 import cors from "cors";
 
 const app = express();
@@ -26,5 +27,6 @@ app.use("/api/telemetry", telemetryRoutes);
 app.use("/api/topology" , topologyRoutes);
 app.use("/api/localization", localizationRoutes);
 app.use("/api/incidents", incidentRoutes);
-app.use("/tickets", ticketRoutes);
+app.use("/api/tickets", ticketRoutes);
+app.use("/api/events", sseRoutes);
 export default app;

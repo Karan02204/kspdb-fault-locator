@@ -6,6 +6,7 @@ import { IncidentRepository } from "../repositories/incident.repository.js";
 import { IncidentGrouper } from "../builders/incident-grouper.js";
 
 import type { Incident } from "../types.js";
+import { eventBus } from "../../events/builders/event-bus.js";
 
 export class IncidentService {
   private static readonly INCIDENT_CREATION_THRESHOLD = 0.7;
@@ -90,6 +91,8 @@ export class IncidentService {
         const incident =
           await this.incidentRepository.createIncident(candidate);
 
+        eventBus.publish("incident.created", incident);
+
         await this.incidentRepository.createTicket(incident.id);
 
         processedIncidents.push(incident);
@@ -104,9 +107,33 @@ export class IncidentService {
         candidate,
       );
 
+      eventBus.publish("incident.updated", updatedIncident);
+
       processedIncidents.push(updatedIncident);
     }
 
     return processedIncidents;
+  }
+
+  async getIncidents() {
+    return this.incidentRepository.getIncidents();
+  }
+
+  async getActiveIncidents() {
+    return this.incidentRepository.getActiveIncidents();
+  }
+
+  async getIncidentHistory() {
+    return this.incidentRepository.getIncidentHistory();
+  }
+
+  async getIncidentById(id: string) {
+    const incident = await this.incidentRepository.getIncidentById(id);
+
+    if (!incident) {
+      throw new Error("Incident not found.");
+    }
+
+    return incident;
   }
 }
