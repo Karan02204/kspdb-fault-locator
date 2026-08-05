@@ -1,10 +1,29 @@
 import { prisma } from "../../../lib/prisma.js";
+import { PoleStateEvent } from "../../telemetry/types.js";
 
 import { PoleState } from "../types.js";
 
 import type { PoleStatus, TopologyConnection } from "../types.js";
 
 export class LocalizationRepository {
+  async getPoleStatesByIds(poleIds: string[]): Promise<PoleStatus[]> {
+    const poleHealth = await prisma.poleHealth.findMany({
+      where: {
+        poleId: {
+          in: poleIds,
+        },
+      },
+    });
+
+    return poleHealth.map((pole) => ({
+      poleId: pole.poleId,
+      state:
+        pole.lastPoleStateEvent === PoleStateEvent.POLE_LIVE
+          ? PoleState.LIVE
+          : PoleState.DARK,
+    }));
+  }
+
   async getTopologyConnections(
     transformerId: string,
   ): Promise<TopologyConnection[]> {

@@ -2,9 +2,11 @@ import { HealthStatus } from "../../../../generated/prisma/enums.js";
 import { TelemetryRepository } from "../repositories/telemetry.repository.js";
 import type { NormalizedTelemetry } from "../types.js";
 import { PoleStateEvent } from "../types.js";
+import { IncidentService } from "../../incident/services/incident.service.js";
 
 export class TelemetryService {
   private repository = new TelemetryRepository();
+  private incidentService = new IncidentService();
 
   async processTelemetry(telemetry: NormalizedTelemetry) {
     const device = await this.repository.findDevice(telemetry.deviceId);
@@ -125,6 +127,17 @@ export class TelemetryService {
         healthStatus,
       },
     );
+
+    if (
+      telemetry.event === PoleStateEvent.POLE_LIVE ||
+      telemetry.event === PoleStateEvent.POLE_DARK
+    ) {
+      const transformerId = await this.repository.getTransformerIdByPoleId(
+        device.poleId,
+      );
+
+      await this.incidentService.processTransformer(transformerId);
+    }
 
     return {
       success: true,

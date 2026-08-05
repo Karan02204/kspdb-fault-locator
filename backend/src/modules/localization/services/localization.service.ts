@@ -8,6 +8,10 @@ export class LocalizationService {
 
   private engine = new LocalizationEngine();
 
+  async getPoleStatesByIds(poleIds: string[]) {
+    return this.repository.getPoleStatesByIds(poleIds);
+  }
+
   async localizeTransformer(transformerId: string): Promise<LocalizedFault[]> {
     const connections =
       await this.repository.getTopologyConnections(transformerId);

@@ -285,7 +285,7 @@ model Incident {
   boundaryToPoleId String
   boundaryToPole   Pole   @relation("BoundaryToPole", fields: [boundaryToPoleId], references: [id])
 
-  affectedPoleCount Int
+  affectedPoles String[]
 
   confidenceScore Float
 
@@ -298,6 +298,8 @@ model Incident {
   updatedAt DateTime @updatedAt
 
   ticket Ticket?
+
+  lastLocalizedAt DateTime @default(now())
 
   @@index([transformerId])
   @@index([boundaryFromPoleId])

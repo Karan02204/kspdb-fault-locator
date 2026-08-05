@@ -10,6 +10,23 @@ export class TelemetryRepository {
     });
   }
 
+  async getTransformerIdByPoleId(poleId: string): Promise<string> {
+    const pole = await prisma.pole.findUnique({
+      where: {
+        id: poleId,
+      },
+      select: {
+        transformerId: true,
+      },
+    });
+
+    if (!pole) {
+      throw new Error(`Pole ${poleId} not found.`);
+    }
+
+    return pole.transformerId;
+  }
+
   async getPoleHealth(poleId: string) {
     return prisma.poleHealth.findUnique({
       where: { poleId },
