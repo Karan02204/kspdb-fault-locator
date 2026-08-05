@@ -6,3 +6,4 @@
 skills-lock.json
 prisma/client
 node_modules
+/dist
