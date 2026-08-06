@@ -261,7 +261,12 @@ export class IncidentRepository {
   async getTickets() {
     return prisma.ticket.findMany({
       include: {
-        incident: true,
+        incident: {
+          include: {
+            boundaryFromPole: true,
+            boundaryToPole: true,
+          },
+        },
       },
 
       orderBy: {

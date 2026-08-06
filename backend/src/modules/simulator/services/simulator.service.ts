@@ -78,6 +78,7 @@ export class SimulatorService {
   }
 
   async powerRestored(deviceId: string) {
+    await this.simulate(deviceId, EventType.BOOT);
     await this.simulate(deviceId, EventType.POWER_RESTORED);
 
     return this.simulate(deviceId, EventType.HEARTBEAT);

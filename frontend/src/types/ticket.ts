@@ -23,6 +23,13 @@ export interface Ticket {
     transformerId: string;
     boundaryFromPoleId: string;
     boundaryToPoleId: string;
+    boundaryFromPole: {
+      pin: string | null;
+    };
+
+    boundaryToPole: {
+      pin: string | null;
+    };
     affectedPoles: string[];
     confidenceScore: number;
   };

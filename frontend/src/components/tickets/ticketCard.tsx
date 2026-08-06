@@ -66,6 +66,10 @@ export default function TicketCard({ ticket }: Props) {
           {" → "}
           {ticket.incident.boundaryToPoleId}
         </div>
+        <div>
+          <strong>PIN Code:</strong>{" "}
+          {ticket.incident.boundaryFromPole?.pin ?? "N/A"}
+        </div>
 
         <div>
           <strong>Affected Poles:</strong>{" "}
