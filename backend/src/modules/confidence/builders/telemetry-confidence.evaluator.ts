@@ -16,7 +16,11 @@ export class TelemetryConfidenceEvaluator implements ConfidenceEvaluator<Telemet
       (pole) => pole.state !== PoleState.UNKNOWN,
     ).length;
 
-    const score = total === 0 ? 0 : observed / total;
+    const coverage = observed / total;
+
+    const sizePenalty = Math.min(input.affectedPoleStates.length * 0.03, 0.25);
+
+    const score = Math.max(0.5, coverage - sizePenalty);
 
     let reason: string;
 

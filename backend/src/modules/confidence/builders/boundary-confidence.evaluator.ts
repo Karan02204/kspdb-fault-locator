@@ -8,10 +8,14 @@ export interface BoundaryEvaluationInput {
 
 export class BoundaryConfidenceEvaluator implements ConfidenceEvaluator<BoundaryEvaluationInput> {
   evaluate(input: BoundaryEvaluationInput): ConfidenceFactor {
+
+    const depth = input.fault.affectedPoles.length;
+
+    const score = Math.max(0.6, 1 - depth * 0.05);
     return {
       type: "BOUNDARY",
 
-      score: 1.0,
+      score,
 
       reason: `Clear LIVE-to-DARK transition observed.`,
     };
