@@ -5,7 +5,7 @@ export default function TicketPanel() {
   const { data, isLoading } = useTickets();
 
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-lg">
+    <div className="rounded-2xl bg-white p-5 shadow-lg h-full">
       <div className="mb-5 flex items-center justify-between">
         <h2 className="text-lg font-bold">Active Tickets</h2>
 
