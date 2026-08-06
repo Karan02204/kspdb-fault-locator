@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon --legacy-watch --watch src --ext ts --exec \"tsx src/server.ts\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed": "tsx src/seed/seed.ts",
+    "bench": "tsx src/scripts/bench.ts"
   },
   "keywords": [],
   "author": "",
@@ -28,6 +31,7 @@
     "@types/node": "^26.1.2",
     "nodemon": "^3.1.14",
     "tsx": "^4.23.4",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10"
   }
 }
