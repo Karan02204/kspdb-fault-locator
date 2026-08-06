@@ -95,17 +95,18 @@ export class TelemetryRepository {
   async saveHeartbeatTimeout(poleId: string, deviceId: string) {
     const now = new Date();
 
-    const latest = await prisma.telemetryEvent.findFirst({
+    const poleHealth = await prisma.poleHealth.findUnique({
       where: {
-        deviceId,
+        poleId,
       },
-      orderBy: {
-        receivedAt: "desc",
+      select: {
+        lastSequenceNumber: true,
+        currentBootSession: true,
       },
     });
 
-    if (latest?.eventType === EventType.HEARTBEAT_TIMEOUT) {
-      return;
+    if (!poleHealth) {
+      throw new Error("Pole health not found");
     }
 
     await prisma.telemetryEvent.create({
@@ -121,8 +122,10 @@ export class TelemetryRepository {
         deviceTimestamp: now,
 
         receivedAt: now,
+        
+        bootSession: poleHealth.currentBootSession,
 
-        sequenceNumber: -1,
+        sequenceNumber: (poleHealth.lastSequenceNumber ?? 0) + 1,
 
         rawPayload: {
           generatedBy: "HeartbeatMonitor",
