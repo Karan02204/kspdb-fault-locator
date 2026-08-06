@@ -35,7 +35,11 @@ export class HeartbeatMonitor {
       if (pole.healthStatus === HealthStatus.OFFLINE) {
         continue;
       }
-      await this.repository.saveHeartbeatTimeout(pole.poleId, pole.deviceId!);
+      try {
+        await this.repository.saveHeartbeatTimeout(pole.poleId, pole.deviceId!);
+      } catch (err) {
+        console.error(err);
+      }
       await this.repository.markHeartbeatTimeout(pole.poleId);
     }
   }

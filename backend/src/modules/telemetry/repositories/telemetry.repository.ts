@@ -95,6 +95,19 @@ export class TelemetryRepository {
   async saveHeartbeatTimeout(poleId: string, deviceId: string) {
     const now = new Date();
 
+    const latest = await prisma.telemetryEvent.findFirst({
+      where: {
+        deviceId,
+      },
+      orderBy: {
+        receivedAt: "desc",
+      },
+    });
+
+    if (latest?.eventType === EventType.HEARTBEAT_TIMEOUT) {
+      return;
+    }
+
     await prisma.telemetryEvent.create({
       data: {
         poleId,
