@@ -4,12 +4,23 @@ import { ConfidenceEngine } from "../../confidence/builders/confidence.engine.js
 
 import { IncidentRepository } from "../repositories/incident.repository.js";
 import { IncidentGrouper } from "../builders/incident-grouper.js";
+import { outageDebouncer } from "../builders/outage-debouncer.js";
+import { transformerMutex } from "../../../lib/keyed-mutex.js";
 
 import type { Incident } from "../types.js";
+import type { MaintenanceSnapshot } from "../../confidence/type.js";
 import { eventBus } from "../../events/builders/event-bus.js";
 
 export class IncidentService {
   private static readonly INCIDENT_CREATION_THRESHOLD = 0.7;
+
+  /**
+   * If darkness survives a scheduled-outage window by more than this grace
+   * period, it is treated as a real fault: the data contract warns that
+   * shutdowns overrun by 20-40 minutes and ~1 in 10 is cancelled without the
+   * feed being updated, so the window cannot be trusted as gospel.
+   */
+  private static readonly MAINTENANCE_GRACE_MS = 15 * 60 * 1000;
 
   private localizationService = new LocalizationService();
 
@@ -21,7 +32,20 @@ export class IncidentService {
 
   private incidentGrouper = new IncidentGrouper();
 
+  /**
+   * Re-evaluate a transformer's outages. Serialized per transformer so two
+   * concurrent dark packets cannot both read "no open incident" and create
+   * duplicate incidents (burst-safe).
+   */
   async processTransformer(transformerId: string): Promise<Incident[]> {
+    return transformerMutex.run(transformerId, () =>
+      this.processTransformerUnsafe(transformerId),
+    );
+  }
+
+  private async processTransformerUnsafe(
+    transformerId: string,
+  ): Promise<Incident[]> {
     const localizedFaults =
       await this.localizationService.localizeTransformer(transformerId);
 
@@ -36,6 +60,13 @@ export class IncidentService {
 
     const maintenance =
       await this.confidenceRepository.getMaintenanceEvents(transformerId);
+
+    const activeMaintenance = this.findActiveMaintenance(
+      maintenance,
+      transformerId,
+      feederId,
+      new Date(),
+    );
 
     const processedIncidents: Incident[] = [];
 
@@ -82,6 +113,22 @@ export class IncidentService {
       );
 
       if (grouping.isNewIncident) {
+        // --------------------------------------------------------------
+        // Scheduled-outage suppression: darkness inside an advertised
+        // maintenance window is expected, not a fault. Do not create an
+        // incident/ticket; schedule a re-check shortly after the window
+        // ends so a genuine fault that outlives the window still surfaces.
+        // --------------------------------------------------------------
+        if (activeMaintenance) {
+          this.schedulePostMaintenanceRecheck(
+            transformerId,
+            activeMaintenance,
+            feederId,
+          );
+
+          continue;
+        }
+
         if (
           confidence.overallScore < IncidentService.INCIDENT_CREATION_THRESHOLD
         ) {
@@ -113,6 +160,46 @@ export class IncidentService {
     }
 
     return processedIncidents;
+  }
+
+  private findActiveMaintenance(
+    maintenance: MaintenanceSnapshot[],
+    transformerId: string,
+    feederId: string,
+    now: Date,
+  ): MaintenanceSnapshot | null {
+    return (
+      maintenance.find((window) => {
+        const active = now >= window.start && now <= window.end;
+
+        if (!active) {
+          return false;
+        }
+
+        if (window.scope === "DT") {
+          return window.targetId === transformerId;
+        }
+
+        return window.targetId === feederId;
+      }) ?? null
+    );
+  }
+
+  private schedulePostMaintenanceRecheck(
+    transformerId: string,
+    window: MaintenanceSnapshot,
+    feederId: string,
+  ): void {
+    const recheckAt = new Date(window.end.getTime() + IncidentService.MAINTENANCE_GRACE_MS);
+
+    const delayMs = Math.max(0, recheckAt.getTime() - Date.now());
+
+    // Key must not collide with the detection window key (`transformerId`),
+    // otherwise a live event cancelling the detection window would also
+    // cancel the maintenance re-check.
+    const key = `maintenance-recheck:${transformerId}:${feederId}`;
+
+    outageDebouncer.schedule(key, () => this.processTransformer(transformerId), delayMs);
   }
 
   async getIncidents() {

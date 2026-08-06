@@ -34,7 +34,7 @@ export class IncidentRepository {
       },
     });
 
-    return incidents.map((incident) => ({
+    return incidents.map((incident: any) => ({
       id: incident.id,
 
       transformerId: incident.transformerId,
@@ -238,12 +238,12 @@ export class IncidentRepository {
     });
   }
 
-  async createTicket(incidentId: string): Promise<void> {
+  async createTicket(incidentId: string) {
     const count = await prisma.ticket.count();
 
     const ticketNumber = `TKT-${String(count + 1).padStart(6, "0")}`;
 
-    await prisma.ticket.create({
+    const ticket = await prisma.ticket.create({
       data: {
         ticketNumber,
 
@@ -260,6 +260,8 @@ export class IncidentRepository {
         isTicketCreated: true,
       },
     });
+
+    return ticket;
   }
 
   async getTickets() {
@@ -267,8 +269,22 @@ export class IncidentRepository {
       include: {
         incident: {
           include: {
-            boundaryFromPole: true,
-            boundaryToPole: true,
+            boundaryFromPole: {
+              select: {
+                id: true,
+                pin: true,
+                lat: true,
+                lon: true,
+              },
+            },
+            boundaryToPole: {
+              select: {
+                id: true,
+                pin: true,
+                lat: true,
+                lon: true,
+              },
+            },
           },
         },
       },
@@ -330,6 +346,32 @@ export class IncidentRepository {
 
       orderBy: {
         detectedAt: "desc",
+      },
+    });
+  }
+
+  /**
+   * Open tickets (not yet verified/closed) belonging to any incident on a
+   * transformer — used for telemetry-based restoration verification.
+   */
+  async findOpenTicketsByTransformer(transformerId: string) {
+    return prisma.ticket.findMany({
+      where: {
+        status: {
+          notIn: [TicketStatus.VERIFIED, TicketStatus.CLOSED],
+        },
+
+        incident: {
+          transformerId,
+        },
+      },
+
+      include: {
+        incident: true,
+      },
+
+      orderBy: {
+        detectedAt: "asc",
       },
     });
   }
