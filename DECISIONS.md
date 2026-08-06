@@ -2,6 +2,8 @@
 
 The following limitations are known at the time of submission. They are documented intentionally rather than omitted.
 
+---
+
 ## 1. AI Operational Brief
 
 The AI operational brief currently produces generic summaries in some scenarios and is not yet fully integrated with the live incident context. The deterministic localization, confidence evaluation, incident generation, and ticket workflow continue to function correctly, but the generated narrative may not accurately reflect the current operational state.
@@ -13,19 +15,7 @@ The AI operational brief currently produces generic summaries in some scenarios 
 
 ---
 
-## 2. Real-time Ticket Synchronization
-
-Ticket creation is reflected immediately through Server-Sent Events. However, under certain incident resolution paths, ticket removal may require a subsequent React Query refetch (such as a window focus event) before disappearing from the dashboard.
-
-This affects only UI synchronization; the backend state remains correct.
-
-**Planned improvement**
-- Publish explicit incident/ticket deletion events.
-- Refresh both incident and ticket queries from a single event stream.
-
----
-
-## 3. Production SSE Configuration
+## 2. Production SSE Configuration
 
 The local deployment fully supports Server-Sent Events. Production deployment requires the frontend EventSource endpoint to reference the deployed backend URL through environment configuration. Until configured, live dashboard updates may not function correctly on the hosted deployment.
 
@@ -35,7 +25,7 @@ The local deployment fully supports Server-Sent Events. Production deployment re
 
 ---
 
-## 4. Heartbeat Automation
+## 3. Heartbeat Automation
 
 The simulator currently supports manual generation of heartbeat telemetry through the operator interface. Continuous periodic heartbeat generation has not yet been implemented.
 
@@ -48,11 +38,12 @@ This does not affect localization or confidence evaluation but limits long-durat
 
 ---
 
-## 5. Simulator Coverage
+## 4. Simulator Coverage
 
 The simulator currently supports the primary outage workflows (power loss, restoration, span faults, transformer faults, repairs, and manual telemetry events).
 
 Additional operational scenarios described in the architecture documentation remain future work, including:
+
 - Scheduled maintenance simulation
 - Maintenance overrun simulation
 - Automatic firmware heartbeat timeout scenarios
@@ -60,11 +51,46 @@ Additional operational scenarios described in the architecture documentation rem
 
 ---
 
-## 6. Performance Validation
+## 5. Maintenance Scheduling
+
+The confidence engine already incorporates planned maintenance windows during confidence evaluation. However, this submission does not include an operator-facing API or dashboard for creating and managing maintenance events. Maintenance records can currently only be inserted directly into the database for testing purposes.
+
+This does not affect localization or confidence evaluation but prevents demonstration of scheduled outage scenarios entirely through the application interface.
+
+**Planned improvement**
+- Add REST endpoints for maintenance management.
+- Add maintenance controls to the simulator.
+- Provide an operator interface for scheduling, updating, and cancelling maintenance windows.
+
+---
+
+## 6. Complex Multi-Transformer Visualization
+
+The backend supports topology inference for official, partial, and inferred radial networks. However, the current frontend visualization has limited support for rendering complex synthetic datasets containing multiple transformers with several independent radial branches.
+
+The primary demonstration workflow and assignment dataset are fully supported, but larger synthetic topologies may display transformer-to-root branch connections incorrectly because explicit transformer root relationships are not yet exposed by the visualization API.
+
+This limitation affects only the map rendering and does not impact topology inference, localization, confidence evaluation, incident generation, or ticket lifecycle management.
+
+**Planned improvement**
+- Expose explicit transformer-to-root branch metadata from the backend.
+- Render independent radial feeders without frontend heuristics.
+- Improve visualization support for large multi-transformer distribution networks.
+
+---
+
+## 7. Performance Validation
 
 The localization algorithm has been validated functionally using synthetic scenarios. Large-scale benchmarking under production telemetry volumes has not yet been completed.
 
-Future work includes benchmarking ingestion throughput, localization latency, and SSE scalability under burst traffic.
+Future work includes benchmarking:
+
+- Telemetry ingestion throughput
+- Fault localization latency
+- Confidence evaluation latency
+- Server-Sent Events scalability
+- Concurrent operator performance
+- Large-scale topology inference performance
 
 
 ## [2026-08-04] Decision: Represent Initial Pole State Using an Explicit UNKNOWN Event

@@ -77,7 +77,7 @@ If all of the above work successfully, the platform has been configured correctl
 
 # 🎥 Demo Video
 
-**Demo Video:** *(Add Google Drive / YouTube link here)*
+**Demo Video:** *https://drive.google.com/file/d/1Agv-mR7-Ivz264FhZInxRe_LCqA4x9aJ/view?usp=sharing*
 
 ---
 
