@@ -93,12 +93,9 @@ export class IncidentService {
         const incident =
           await this.incidentRepository.createIncident(candidate);
 
-        await this.incidentRepository.createTicket(incident.id);
+        const ticket = await this.incidentRepository.createTicket(incident.id);
         eventBus.publish("incident.created", incident);
-        eventBus.publish("ticket.updated", {
-          incidentId: incident.id,
-        });
-
+        eventBus.publish("ticket.updated", ticket);
 
         processedIncidents.push(incident);
 

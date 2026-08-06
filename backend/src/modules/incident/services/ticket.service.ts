@@ -90,12 +90,12 @@ export class TicketService {
     );
 
     if (newStatus === TicketStatus.CLOSED) {
+      const incident = await this.repository.getIncidentById(
+        updatedTicket.incidentId,
+      );
       await this.repository.deleteIncidentByTicket(ticketId);
 
-      eventBus.publish("incident.updated", {
-        id: updatedTicket.incidentId,
-        closed: true,
-      });
+      eventBus.publish("incident.updated", incident);
     }
 
     eventBus.publish("ticket.updated", updatedTicket);
