@@ -25,7 +25,7 @@ function getPoleColor(pole: any) {
     return "#dc2626"; // Red
   }
 
-  // Heartbeat timeout (2 minutes)
+  // Heartbeat timeout (10 minutes)
   if (health.lastHeartbeatAt) {
     const age = Date.now() - new Date(health.lastHeartbeatAt).getTime();
 
