@@ -13,14 +13,14 @@ export class NetworkQueryRepository {
       ]);
 
     const healthMap = new Map(
-      poleHealth.map((health) => [health.poleId, health]),
+      poleHealth.map((health: any) => [health.poleId, health]),
     );
 
     return {
       feeders,
       transformers,
 
-      poles: poles.map((pole) => ({
+      poles: poles.map((pole: any) => ({
         ...pole,
         health: healthMap.get(pole.id) ?? null,
       })),
