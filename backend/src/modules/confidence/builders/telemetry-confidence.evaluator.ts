@@ -8,6 +8,14 @@ export interface TelemetryEvaluationInput {
   affectedPoleStates: PoleStatus[];
 }
 
+/**
+ * How much of the affected subtree has *observed* state evidence.
+ *
+ * UNKNOWN poles (no device, dead sensor, never heard from) are not
+ * evidence of darkness and must not inflate coverage. A fault whose
+ * affected poles are mostly UNKNOWN scores low, which is the honest
+ * reading: we know something is dark, but not how much of the subtree.
+ */
 export class TelemetryConfidenceEvaluator implements ConfidenceEvaluator<TelemetryEvaluationInput> {
   evaluate(input: TelemetryEvaluationInput): ConfidenceFactor {
     const total = input.affectedPoleStates.length;
@@ -16,22 +24,20 @@ export class TelemetryConfidenceEvaluator implements ConfidenceEvaluator<Telemet
       (pole) => pole.state !== PoleState.UNKNOWN,
     ).length;
 
-    const coverage = observed / total;
+    const coverage = total === 0 ? 0 : observed / total;
 
-    const sizePenalty = Math.min(input.affectedPoleStates.length * 0.03, 0.25);
-
-    const score = Math.max(0.5, coverage - sizePenalty);
+    const score = Math.max(0, coverage);
 
     let reason: string;
 
     if (score >= 0.9) {
-      reason = "Excellent telemetry coverage.";
+      reason = "Excellent telemetry coverage of the affected subtree.";
     } else if (score >= 0.7) {
-      reason = "Good telemetry coverage.";
+      reason = "Good telemetry coverage of the affected subtree.";
     } else if (score >= 0.5) {
-      reason = "Partial telemetry coverage.";
+      reason = "Partial telemetry coverage of the affected subtree.";
     } else {
-      reason = "Insufficient telemetry coverage.";
+      reason = "Most affected poles have no observed state; darkness evidence is thin.";
     }
 
     return {

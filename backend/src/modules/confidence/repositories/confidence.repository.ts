@@ -21,7 +21,7 @@ export class ConfidenceRepository {
       },
     });
 
-    return connections.map((connection) => ({
+    return connections.map((connection: any) => ({
       fromPoleId: connection.fromPoleId,
 
       toPoleId: connection.toPoleId,
@@ -37,24 +37,30 @@ export class ConfidenceRepository {
   async getPoleHealthSnapshots(
     poleIds: string[],
   ): Promise<PoleHealthSnapshot[]> {
+    // Include ALL affected poles — not just poles with devices. A pole with
+    // no device (or a dead sensor we never hear from) must contribute a
+    // neutral/negative score, otherwise sensor health is inflated by
+    // sampling only the healthy devices.
     const poleHealth = await prisma.poleHealth.findMany({
       where: {
         poleId: {
           in: poleIds,
         },
-
-        deviceId: {
-          not: null,
-        },
       },
     });
 
-    return poleHealth.map((health) => ({
+    return poleHealth.map((health: any) => ({
+      poleId: health.poleId,
+
+      hasDevice: health.deviceId !== null,
+
       batteryMv: health.batteryMv,
 
       rssi: health.rssi,
 
       lastHeartbeatAt: health.lastHeartbeatAt,
+
+      isEnergized: health.isEnergized,
     }));
   }
 
@@ -89,7 +95,7 @@ export class ConfidenceRepository {
       },
     });
 
-    return maintenance.map((event) => ({
+    return maintenance.map((event: any) => ({
       start: event.startsAt,
 
       end: event.endsAt,

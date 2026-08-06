@@ -32,11 +32,23 @@ export interface ConfidenceEvaluator<T> {
 }
 
 export interface PoleHealthSnapshot {
+  poleId: string;
+
+  /** False when the pole has no telemetry device fitted at all. */
+  hasDevice: boolean;
+
   batteryMv: number | null;
 
   rssi: number | null;
 
   lastHeartbeatAt: Date | null;
+
+  /**
+   * Live/dark as currently known. When a pole is dark *only because its
+   * heartbeat stopped* (no power_lost packet was ever received) this is the
+   * weakest form of darkness evidence and scores low.
+   */
+  isEnergized: boolean | null;
 }
 
 export interface MaintenanceSnapshot {

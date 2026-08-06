@@ -1,5 +1,4 @@
 import { prisma } from "../../../lib/prisma.js";
-import { PoleStateEvent } from "../../telemetry/types.js";
 
 import { PoleState } from "../types.js";
 
@@ -15,12 +14,14 @@ export class LocalizationRepository {
       },
     });
 
-    return poleHealth.map((pole) => ({
+    return poleHealth.map((pole: any) => ({
       poleId: pole.poleId,
       state:
-        pole.lastPoleStateEvent === PoleStateEvent.POLE_LIVE
+        pole.isEnergized === true
           ? PoleState.LIVE
-          : PoleState.DARK,
+          : pole.isEnergized === false
+            ? PoleState.DARK
+            : PoleState.UNKNOWN,
     }));
   }
 
@@ -35,7 +36,7 @@ export class LocalizationRepository {
       },
     });
 
-    return connections.map((connection) => ({
+    return connections.map((connection: any) => ({
       fromPoleId: connection.fromPoleId,
       toPoleId: connection.toPoleId,
       source: connection.source,
@@ -53,7 +54,7 @@ export class LocalizationRepository {
       },
     });
 
-    return poles.map((pole) => ({
+    return poles.map((pole: any) => ({
       poleId: pole.id,
 
       state:

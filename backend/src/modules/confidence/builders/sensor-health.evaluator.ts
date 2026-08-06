@@ -8,10 +8,31 @@ export interface SensorHealthEvaluationInput {
   poleHealth: PoleHealthSnapshot[];
 }
 
+/**
+ * How trustworthy the sensors behind a fault are.
+ *
+ * Rules:
+ * - Poles with no device fitted are neutral (0.5): their silence tells us
+ *   nothing about the fault.
+ * - A pole that is DARK only because its heartbeats stopped (lastHeartbeatAt
+ *   is null — heartbeat-timeout derived) is weak evidence and scores low:
+ *   the outage may be a dead modem, not a dead span.
+ * - Otherwise battery, RSSI and heartbeat recency are combined as usual.
+ */
 export class SensorHealthEvaluator implements ConfidenceEvaluator<SensorHealthEvaluationInput> {
   evaluate(input: SensorHealthEvaluationInput): ConfidenceFactor {
-
     const poleScores = input.poleHealth.map((health) => {
+      if (!health.hasDevice) {
+        return 0.5;
+      }
+
+      if (
+        health.isEnergized === false &&
+        health.lastHeartbeatAt === null
+      ) {
+        return 0.3;
+      }
+
       const battery = this.batteryScore(health.batteryMv);
 
       const rssi = this.rssiScore(health.rssi);
@@ -23,7 +44,7 @@ export class SensorHealthEvaluator implements ConfidenceEvaluator<SensorHealthEv
 
     const score =
       poleScores.length === 0
-        ? 1
+        ? 0.5
         : poleScores.reduce((sum, value) => sum + value, 0) / poleScores.length;
 
     let reason: string;
@@ -35,7 +56,7 @@ export class SensorHealthEvaluator implements ConfidenceEvaluator<SensorHealthEv
     } else if (score >= 0.5) {
       reason = "Moderate sensor health.";
     } else {
-      reason = "Poor sensor health.";
+      reason = "Poor sensor health; some darkness evidence comes from silent devices.";
     }
 
     return {
