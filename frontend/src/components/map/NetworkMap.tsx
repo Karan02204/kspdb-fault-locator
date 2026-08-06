@@ -21,11 +21,15 @@ function getPoleColor(pole: any) {
     return "#9ca3af"; // Unknown
   }
 
+  if (health.isEnergized === false) {
+    return "#dc2626"; // Red
+  }
+
   // Heartbeat timeout (2 minutes)
   if (health.lastHeartbeatAt) {
     const age = Date.now() - new Date(health.lastHeartbeatAt).getTime();
 
-    if (age > 2 * 60 * 1000) {
+    if (age > 10 * 60 * 1000) {
       return "#f59e0b"; // Orange
     }
   }
