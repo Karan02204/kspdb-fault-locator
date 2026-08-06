@@ -28,6 +28,8 @@ services:
     environment:
       # Connection string to reach the Postgres container
       - DATABASE_URL=postgresql://postgres:password@postgres:5432/kspdb?schema=public
+      # Direct connection used by Prisma migrations (same URL for the local stack)
+      - DIRECT_URL=postgresql://postgres:password@postgres:5432/kspdb?schema=public
     depends_on:
       postgres:
         condition: service_healthy
