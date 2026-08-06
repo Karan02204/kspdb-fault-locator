@@ -136,3 +136,32 @@ Some of the most valuable prompts used during development included:
 Throughout the project, I treated AI as an engineering collaborator rather than an authoritative source. AI accelerated research, boilerplate generation, and architectural exploration, but every significant design decision and implementation was validated through manual reasoning, iterative refinement, debugging, and testing before becoming part of the final solution.
 
 This approach ensured that I fully understood the system I built and could explain or modify every major component independently.
+---
+
+# Post-Submission Hardening Pass (2026-08-06)
+
+After the initial submission, a structured review pass was run against the
+assignment documents and the engineering docs. The pass was executed with
+AI assistance (implementation planning and code generation) but every
+change was verified the same way the rest of the project was: by running
+the code, not by trusting the output.
+
+Where the AI was wrong during this pass (and how it was caught):
+
+1. **A proposed zod transform contained a leftover broken expression**
+   (`this?.mapRawEvent(...)`) that would not have compiled. Caught by
+   running `tsc --noEmit` before committing.
+2. **The first debouncer implementation would crash on synchronous
+   callbacks** (`run().catch(...)` on `undefined`). Caught by the unit test
+   for the debounce window, which failed immediately.
+3. **A test asserted the wrong physical expectation** (root poles of
+   official transformers have `seq` but no `parent`, and ~91% of poles
+   legitimately have device IDs) — the generator was right and the test
+   was wrong. Caught by running the tests and reading the generated CSV.
+
+The verification loop used: `tsc --noEmit` (0 errors), `vitest` (31 tests
+passing), `npm run lint` (0 errors), `npm run build` (frontend), and
+`npm run bench` (measured timings recorded in DECISIONS.md). Because this
+sandbox cannot download Prisma's engine binaries, a gitignored stub of the
+generated client was used for type-checking and pure-logic tests; the real
+`npx prisma generate` output replaces it in a normal environment.

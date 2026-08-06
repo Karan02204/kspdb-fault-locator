@@ -27,71 +27,208 @@ The local deployment fully supports Server-Sent Events. Production deployment re
 
 ## 3. Heartbeat Automation
 
-The simulator currently supports manual generation of heartbeat telemetry through the operator interface. Continuous periodic heartbeat generation has not yet been implemented.
-
-This does not affect localization or confidence evaluation but limits long-duration simulation scenarios.
+The simulator generates heartbeat telemetry manually through the operator
+interface; continuous periodic heartbeat generation is not implemented
+(heartbeats in the field are produced by the devices themselves). Heartbeat
+**timeout** detection is fully implemented and wired into localization and
+confidence (see the 2026-08-06 hardening-pass entry).
 
 **Planned improvement**
-- Background heartbeat scheduler.
+- Background heartbeat scheduler for long-duration simulations.
 - Configurable heartbeat intervals.
-- Automatic timeout demonstrations.
 
 ---
 
 ## 4. Simulator Coverage
 
-The simulator currently supports the primary outage workflows (power loss, restoration, span faults, transformer faults, repairs, and manual telemetry events).
+The simulator now covers the full assignment §6 list:
 
-Additional operational scenarios described in the architecture documentation remain future work, including:
+- Span faults (darken the whole downstream subtree)
+- Transformer faults
+- Feeder faults
+- Dead-device simulation (device dies while power is fine)
+- Scheduled-outage windows
+- Realistic noise mode: firmware-1.2 silence, ~30% lost dying messages,
+  duplicate retries, out-of-order packets
 
-- Scheduled maintenance simulation
-- Maintenance overrun simulation
-- Automatic firmware heartbeat timeout scenarios
-- Large-scale simultaneous outage generation
+Remaining future work: an explicit "maintenance overrun" scenario and
+large-scale simultaneous outage generation as a single one-shot action
+(multiple faults are still drivable individually).
 
 ---
 
 ## 5. Maintenance Scheduling
 
-The confidence engine already incorporates planned maintenance windows during confidence evaluation. However, this submission does not include an operator-facing API or dashboard for creating and managing maintenance events. Maintenance records can currently only be inserted directly into the database for testing purposes.
-
-This does not affect localization or confidence evaluation but prevents demonstration of scheduled outage scenarios entirely through the application interface.
+The simulator now creates scheduled-outage windows via
+`POST /api/simulator/maintenance`, and the incident service suppresses
+ticket creation while a window is active (with a post-window re-check for
+overruns). What is still missing is a general operator-facing CRUD API and
+dashboard for managing the department's real maintenance calendar.
 
 **Planned improvement**
-- Add REST endpoints for maintenance management.
-- Add maintenance controls to the simulator.
-- Provide an operator interface for scheduling, updating, and cancelling maintenance windows.
+- Full REST endpoints for maintenance management.
+- An operator interface for scheduling, updating, and cancelling windows.
 
 ---
 
 ## 6. Complex Multi-Transformer Visualization
 
-The backend supports topology inference for official, partial, and inferred radial networks. However, the current frontend visualization has limited support for rendering complex synthetic datasets containing multiple transformers with several independent radial branches.
-
-The primary demonstration workflow and assignment dataset are fully supported, but larger synthetic topologies may display transformer-to-root branch connections incorrectly because explicit transformer root relationships are not yet exposed by the visualization API.
-
-This limitation affects only the map rendering and does not impact topology inference, localization, confidence evaluation, incident generation, or ticket lifecycle management.
+The map previously hard-coded the first transformer for centring. It now
+fits the whole network (bounds across all transformers and poles), so the
+seeded multi-transformer network renders correctly. The backend still does
+not expose an explicit transformer→root connection; the map renders poles,
+connections and transformers without that metadata.
 
 **Planned improvement**
 - Expose explicit transformer-to-root branch metadata from the backend.
-- Render independent radial feeders without frontend heuristics.
-- Improve visualization support for large multi-transformer distribution networks.
 
 ---
 
 ## 7. Performance Validation
 
-The localization algorithm has been validated functionally using synthetic scenarios. Large-scale benchmarking under production telemetry volumes has not yet been completed.
+The pure-logic hot paths are now benchmarked (`npm run bench`, numbers
+measured on the reference machine, DB excluded):
 
-Future work includes benchmarking:
+| Operation | Measured |
+|-----------|----------|
+| Localization, 240-pole radial tree, 1 fault | ~0.8 ms |
+| 10 sequential localizations (burst of 10 messages) | ~3.1 ms |
+| Confidence evaluation, 60-pole subtree (per 1,000 evals) | ~5 ms |
+| Incident grouping vs 5 open incidents (per 1,000 evals) | ~4.7 ms |
+| Topology completion, 240-pole line, 100 official edges | ~44 ms (was ~3.9 s at 200 poles before the O(n²) fix) |
 
-- Telemetry ingestion throughput
-- Fault localization latency
-- Confidence evaluation latency
-- Server-Sent Events scalability
-- Concurrent operator performance
-- Large-scale topology inference performance
+End-to-end numbers involving PostgreSQL, the network, and SSE are **not**
+claimed here — they depend on the host and are still unmeasured. Future
+work includes a DB-backed ingest-burst harness (5,000 messages in 10 s)
+and SSE scalability under concurrent operators.
 
+---
+
+## [2026-08-06] Hardening Pass — Making the Documentation True
+
+A post-submission review (see `CODE_REVIEW.md`) compared every claim in the
+docs against the code and found five demonstrable correctness defects plus
+several claims for systems that did not exist. This pass fixed them. Each
+item below records what was wrong and what changed.
+
+### UNKNOWN poles on the fault boundary are now reported as RANGE faults
+
+The old boundary detector only emitted `LIVE → DARK` for *adjacent* poles.
+A fault whose boundary pole had no device (9% of poles), a dead sensor
+(~4% offline), or firmware-1.2 silence (8% of devices, never send
+`power_lost`) was **missed entirely**. The detector now traces through
+UNKNOWN poles to the first pole with confirmed darkness and reports the
+fault as a RANGE (`upstreamPoleId → downstreamPoleId` with the silent
+poles listed) and lowers boundary certainty. If the silent section is
+followed by a LIVE pole, no boundary is emitted — that pattern is a sensor
+problem, not an outage.
+
+### Whole-DT outages now require evidence
+
+The all-dark branch fired whenever `energizedPoles.length === 0`, so a
+freshly imported network (everything UNKNOWN) produced a spurious
+"whole transformer down" incident the moment one pole reported dark. Now:
+no known poles → no fault; all *known* poles dark with ≥ 2 independent
+reports → DT-level fault. A single dark report among many silent poles is
+not escalated.
+
+### Dead sensors no longer create high-confidence tickets
+
+A dark pole whose own subtree contains a LIVE pole is physically
+impossible as a line fault. The engine suppresses such boundaries (the
+assignment's canonical "sensor is lying" signature). Previously this
+scored 0.982 → HIGH → ticket.
+
+### Confidence is honest about what was observed
+
+- `getPoleStatesByIds` no longer maps UNKNOWN → DARK; only `isEnergized`
+  decides LIVE/DARK/UNKNOWN.
+- Telemetry coverage counts only observed states (no 0.5 floor).
+- Sensor health samples ALL affected poles (not just poles with devices)
+  and scores darkness derived from heartbeat silence at 0.3.
+- Boundary certainty distinguishes clean span (0.95) / range (0.7) /
+  whole-DT (0.55).
+
+### Scheduled outages suppress tickets (with an overrun safety valve)
+
+Darkness inside an advertised maintenance window is expected, not a fault:
+incident/ticket creation is skipped while the window is active. Because
+shutdowns overrun 20–40 minutes and ~1 in 10 is cancelled without the feed
+being updated, a re-check is scheduled 15 minutes after the advertised end;
+if darkness survives, it is treated as a real fault.
+
+### The 30-second observation window is implemented
+
+`DECISIONS.md` (2026-08-01) chose a 30-second Candidate Observation
+Window; the code never had one. `OutageDebouncer` now implements it: a
+`power_lost` signal schedules localization for 30 s later (the window does
+not slide under a storm of packets), and `power_restored` cancels it and
+processes immediately. In-memory by design — documented single-instance
+limitation for horizontal scaling.
+
+### Heartbeat timeouts now participate in detection
+
+Previously a heartbeat timeout only wrote a log row and set
+`healthStatus = OFFLINE`; localization never saw it, so firmware-1.2
+silent outages were invisible. The monitor now flips `isEnergized = false`,
+enters the observation window, and the impossible-pattern check prevents
+dead-modem false positives. `HEARTBEAT_TIMEOUT_MINUTES` is configurable
+(default 15, matching the heartbeat cadence).
+
+### Ingest accepts the device payload contract
+
+The endpoint only accepted a camelCase shape (`deviceId`, `eventType`,
+`sequenceNumber`, …). The devices in `02-data-and-systems.md` send
+`device_id`, `pole_id`, `event`, `energized`, `ts`, `seq`, `battery_mv`,
+`rssi`, `fw`. Both forms are now accepted and normalized; `pole_id` is
+used as a device-resolution fallback and `energized` is trusted for pole
+state. Protocol violations (e.g. BOOT with `seq != 0`) are logged and
+dropped instead of 500ing the device.
+
+### Partial topology completion is O(n²), not O(n³)
+
+The loop recomputed an all-pairs maximum distance every iteration.
+Measured before: ~3.9 s for a 200-pole transformer. The nearest-connected
+map is now maintained incrementally: **240 poles in ~44 ms** (see `npm run
+bench`). `ARCHITECTURE.md` previously claimed O(n log n) — the claim is
+now corrected to O(n²) for the partial path and backed by measurements.
+
+### Startup seeding (Gate G3)
+
+`docker compose up` previously started an empty database. `start.sh` now
+seeds a realistic synthetic network (3 feeders, 16 transformers, ~900
+poles, ~60% missing official ordering, ~9% no device, ~8% firmware 1.2)
+through the same CSV import path reviewers use. Idempotent. `sample-data/`
+now exists with the importable sample CSVs, and `backend/.env.example` is
+committed (both were referenced by `DEPLOYMENT.md` but absent).
+
+### Simulator matches the assignment's §6 list
+
+The simulator now darkens the **whole downstream subtree** on a span fault
+(physics), supports **feeder faults**, a **dead-device** simulation, and
+**scheduled-outage** creation, and has a `noise` mode producing
+field-realistic telemetry: firmware-1.2 silence, ~30% lost dying messages,
+duplicate retries and out-of-order packets — all of which the ingest layer
+must handle.
+
+### Tests exist and pass
+
+`npm test` was `echo "Error: no test specified"`. Vitest now runs 31 tests
+covering localization (span, range, simultaneous faults, impossible
+patterns, evidence-based all-dark), confidence honesty, incident grouping,
+the debouncer, the ingest schema, topology completion (with a regression
+guard for the old O(n³) loop) and the seed generator.
+
+### Ticket workflow corrections
+
+- RESOLVED pushback is scoped to the incident's own span (repairing one of
+  two simultaneous faults no longer blocks resolving the other).
+- Restoration auto-verification now covers any open ticket on a fully
+  restored transformer (previously only a CREW_ASSIGNED ticket, and it
+  picked the wrong one for multi-fault transformers).
+- The UI surfaces the server's rejection message instead of swallowing it.
+
+---
 
 ## [2026-08-04] Decision: Represent Initial Pole State Using an Explicit UNKNOWN Event
 

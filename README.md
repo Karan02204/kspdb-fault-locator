@@ -33,10 +33,14 @@ The command automatically:
 - Waits for the database to become healthy
 - Generates the Prisma Client
 - Applies all Prisma migrations
+- **Seeds a realistic synthetic network** (~900 poles across 16
+  transformers, ~60% of transformers with missing official pole ordering,
+  ~9% of poles without devices) so the dashboard is usable immediately
 - Starts the backend API
 - Starts the frontend application
 
 No additional setup or manual database configuration is required.
+The `sample-data/` CSVs are optional — the seeded network is already there.
 
 ---
 
@@ -54,24 +58,36 @@ No additional setup or manual database configuration is required.
 
 After the containers finish starting:
 
-1. Open **http://localhost:5173**
-2. Import the provided CSV files.
-3. Verify that the electrical network appears on the map.
-4. Open the Simulator panel.
-5. Trigger:
+1. Open **http://localhost:5173** — the synthetic network is already seeded.
+2. Verify that the electrical network appears on the map (blue = official
+   topology, purple dashed = inferred topology).
+3. Open the Simulator panel.
+4. Trigger:
    - BOOT
    - HEARTBEAT
    - POWER LOST
-6. Verify that:
+5. Verify that:
    - Pole health updates in real time
-   - Fault localization is performed
-   - An incident is automatically created
-   - A maintenance ticket is generated
+   - Within ~30 seconds (the candidate observation window) the outage is
+     localized, an incident is created and a maintenance ticket is generated
    - The Live Event Feed updates automatically
-7. Progress the ticket through its lifecycle.
-8. Trigger **POWER RESTORED** or **Repair** and verify the network returns to normal.
+6. Inject a **Span Fault** (darkens the whole downstream subtree) or a
+   **Feeder Fault**, then toggle **Realistic noise** to see firmware-1.2
+   silence, lost dying messages, duplicates and out-of-order retries handled.
+7. Progress the ticket through its lifecycle. Marking it RESOLVED while the
+   span is still dark is rejected by the server, and the card shows why.
+8. Trigger **POWER RESTORED** or **Repair** and verify the network returns
+   to normal and the ticket is auto-verified from telemetry.
 
 If all of the above work successfully, the platform has been configured correctly.
+
+## ✅ Tests & Benchmarks
+
+```bash
+cd backend
+npm test        # 31 unit tests on the logic that matters (localization, confidence, grouping, debounce, ingest schema, topology completion, seed generator)
+npm run bench   # measured timings for localization / confidence / topology completion
+```
 
 ---
 
@@ -91,44 +107,62 @@ If all of the above work successfully, the platform has been configured correctl
 
 # ✨ Platform Features
 
-- Import electrical network data from CSV files
+- Seeded on startup with a realistic synthetic network (Gate G3)
+- Import electrical network data from CSV files (`sample-data/`)
 - Automatic network validation during import
 - Automatic topology reconstruction for missing LT networks
-- Interactive GIS network visualization
-- Live telemetry ingestion
-- Duplicate and out-of-order telemetry handling
+- Interactive GIS network visualization (whole network, not one transformer)
+- Live telemetry ingestion accepting the device payload contract
+  (`device_id`, `pole_id`, `event`, `energized`, `seq`, `ts`, `battery_mv`,
+  `rssi`, `fw`) and the simulator's camelCase form
+- Duplicate and out-of-order telemetry handling with boot sessions
+- 30-second candidate observation window before tickets are created
 - Pole health monitoring
-- Heartbeat timeout detection
-- Fault localization using electrical topology
+- Heartbeat timeout detection (firmware-1.2 silent outages)
+- Fault localization using electrical topology:
+  - clean LIVE→DARK span boundaries
+  - RANGE boundaries when the fault passes through untelemetered poles
+  - evidence-based whole-DT detection
+  - physically-impossible-pattern suppression (dead sensors, not outages)
 - Confidence scoring with explainable breakdown
-- Automatic incident grouping
-- Automatic maintenance ticket creation
-- Ticket lifecycle management
+- Automatic incident grouping (one ticket per fault, not per dark pole)
+- Scheduled-outage suppression (no tickets during load shedding)
+- Ticket lifecycle management with telemetry-verified restoration
 - Live dashboard updates using Server-Sent Events
-- Interactive fault simulator
+- Interactive fault simulator: span / transformer / feeder faults,
+  realistic noise (lost dying messages, firmware-1.2 silence, duplicates,
+  out-of-order retries), dead-device simulation, scheduled-outage windows
 - AI Operational Brief generation
+- Unit tests for the localization and confidence logic (`npm test`)
 
 ---
 
 # 🧪 Demo Workflow
 
-1. Import the provided Transformer and Pole registry CSV files.
-2. Verify the imported electrical network.
-3. Confirm missing topology is inferred automatically.
-4. Select a telemetry device in the Simulator.
-5. Send a **BOOT** event.
-6. Send a **HEARTBEAT** event.
-7. Inject a **POWER LOST** event.
-8. Observe:
+The network is seeded on startup, so a demo runs like this:
+
+1. Open the dashboard and verify the electrical network (blue = official
+   topology, purple dashed = inferred — ~60% of transformers are inferred).
+2. Select a transformer, feeder and telemetry device in the Simulator.
+3. Send a **BOOT** event, then a **HEARTBEAT** event.
+4. Inject a **POWER LOST** event (or **Inject Span Fault** / **Inject
+   Transformer Fault** / **Inject Feeder Fault**).
+5. Within ~30 seconds (candidate observation window) observe:
    - Live telemetry ingestion
-   - Pole health updates
-   - Fault localization
-   - Confidence calculation
-   - Incident creation
-   - Ticket generation
-   - Live dashboard updates
-9. Advance the maintenance ticket through its lifecycle.
-10. Restore power using **POWER RESTORED** or **Repair**.
+   - Pole health updates (red = dark)
+   - Fault localization with the correct boundary span
+   - Confidence calculation with explainable breakdown
+   - One incident + one ticket per fault (not one per dark pole)
+   - Live dashboard updates via SSE
+6. Try **KILL DEVICE (power stays on)** — the impossible-pattern check
+   means a dead sensor never becomes a ticket.
+7. Try **Start Scheduled Outage (30 min)** then a fault — no ticket is
+   created while the window is active.
+8. Advance the ticket: DETECTED → ACKNOWLEDGED → CREW ASSIGNED → RESOLVED.
+   Marking RESOLVED while the span is still dark is rejected, and the card
+   shows the reason.
+9. Restore power using **POWER RESTORED** or **Repair**. The ticket is
+   auto-verified from telemetry (no click needed) and can be closed.
 
 ---
 
@@ -137,9 +171,10 @@ If all of the above work successfully, the platform has been configured correctl
 | Document | Purpose |
 |----------|---------|
 | README.md | Project overview, quick start, demo workflow and links |
-| architecture.md | System architecture, algorithms, data flow and API design |
-| deployment.md | Deployment guide, environment variables and troubleshooting |
-| ai_usage.md | AI-assisted development process and validation approach |
+| ARCHITECTURE.md | System architecture, algorithms, data flow and API design |
+| DEPLOYMENT.md | Deployment guide, environment variables and troubleshooting |
+| DECISIONS.md | Decision log, assumptions, known limitations |
+| AI-WORKFLOW.md | AI-assisted development process and validation approach |
 
 ---
 

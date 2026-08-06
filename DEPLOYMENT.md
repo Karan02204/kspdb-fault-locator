@@ -42,7 +42,7 @@ DEPLOYMENT.md
 
 Create a `.env` file inside the **backend** directory.
 
-You may simply copy the provided example.
+You may simply copy the provided example (committed at `backend/.env.example`).
 
 ```bash
 cp backend/.env.example backend/.env
@@ -70,8 +70,11 @@ NODE_ENV=development
 | DATABASE_URL | Yes | — | PostgreSQL pooled connection string used by Prisma |
 | DIRECT_URL | Yes | — | Direct PostgreSQL connection used for migrations |
 | PORT | No | 3000 | Backend API port |
-| HEARTBEAT_TIMEOUT_MINUTES | No | 2 | Heartbeat timeout threshold |
+| HEARTBEAT_TIMEOUT_MINUTES | No | 15 | Minutes of heartbeat silence before a pole is treated as possibly dark (matches the 15-minute heartbeat cadence) |
 | NODE_ENV | No | development | Runtime environment |
+
+`docker-compose.yml` supplies `DATABASE_URL` for the local stack. For manual
+runs, `backend/.env.example` shows the full set of variables.
 
 ---
 
@@ -121,6 +124,7 @@ Docker automatically:
 - installs dependencies
 - generates Prisma Client
 - runs migrations
+- seeds a realistic synthetic network (idempotent — skipped if poles exist)
 - starts the backend
 - starts the frontend
 
@@ -168,22 +172,15 @@ npm run dev
 
 # Initial Data Import
 
-Open
+The database is **seeded on startup**, so no import is required to see a
+working system.
 
-```
-http://localhost:5173
-```
+If you want to replace the seeded network (for example after a reset):
 
-Click
-
-```
-Import Network
-```
-
-Upload
-
-- Transformers CSV
-- Poles CSV
+1. Open `http://localhost:5173`.
+2. Click **Import Network**.
+3. Upload `sample-data/transformers.csv` and `sample-data/poles.csv`
+   (or your own CSVs matching the schemas in `02-data-and-systems.md`).
 
 The platform automatically
 
@@ -192,7 +189,11 @@ The platform automatically
 - stores official topology
 - refreshes the dashboard
 
-No additional setup is required.
+To re-seed the synthetic network on demand (after wiping the DB):
+
+```bash
+docker compose exec backend npm run seed
+```
 
 ---
 
@@ -200,16 +201,14 @@ No additional setup is required.
 
 A successful deployment should display
 
-- Interactive network map
+- Interactive network map (seeded network, not empty)
 - KPI dashboard
 - Incident panel
 - Ticket panel
 - Simulator
 - Live Event Feed
 
-After importing the sample network,
-
-trigger
+Trigger
 
 ```
 BOOT
@@ -226,8 +225,8 @@ POWER LOST
 Expected behaviour
 
 - Pole turns red
-- Incident created
-- Ticket created
+- Within ~30 seconds an incident is created
+- A ticket is created
 - Live Event Feed updates
 - Confidence score displayed
 
@@ -240,8 +239,8 @@ POWER RESTORED
 Expected behaviour
 
 - Pole becomes energized again
-- Ticket automatically transitions to RESOLVED
-- Operator may manually VERIFY and CLOSE the ticket
+- Ticket is auto-verified from telemetry (RESOLVED → VERIFIED without a click)
+- Operator may CLOSE the ticket
 
 ---
 
@@ -273,9 +272,11 @@ If running manually
 npx prisma migrate reset
 
 npx prisma generate
+
+npm run seed
 ```
 
-Then re-import the sample network.
+Then open the dashboard — the synthetic network is present again.
 
 ---
 
@@ -397,6 +398,56 @@ Property does not exist on Prisma Client
 
 ```bash
 npx prisma generate
+```
+
+---
+
+## Prisma Engine Binary Download Fails
+
+### Symptom
+
+```
+request to https://binaries.prisma.sh/... failed
+```
+
+during `npx prisma generate` (common on restricted networks).
+
+### Fix
+
+Retry — the download is flaky on some networks. If it persists, download
+the engine binaries on a machine with open network access and copy them
+into the image, or set `PRISMA_ENGINES_MIRROR` to a reachable mirror.
+
+---
+
+## Seed Skips / "already contains poles"
+
+### Symptom
+
+`Seed skipped: database already contains N poles.` in backend logs.
+
+### Cause
+
+The seeder is idempotent by design; it only seeds an empty database.
+
+### Fix
+
+That is expected after the first start. To force a fresh seed:
+
+```bash
+docker compose down -v
+docker compose up --build
+```
+
+---
+
+## Running the Tests
+
+```bash
+cd backend
+npm test        # unit tests for localization, confidence, grouping,
+                # debounce, ingest schema, topology completion, seed generator
+npm run bench   # measured pure-logic timings
 ```
 
 ---
@@ -627,21 +678,21 @@ Production builds behave normally.
 
 # Expected Demo Workflow
 
-1. Start the application.
-2. Import the sample network.
-3. Verify the topology appears.
-4. Trigger BOOT.
-5. Trigger HEARTBEAT.
-6. Trigger POWER LOST.
-7. Observe:
+1. Start the application (the synthetic network is seeded automatically).
+2. Verify the topology appears.
+3. Trigger BOOT, then HEARTBEAT, then POWER LOST.
+4. Observe within ~30 seconds:
    - Pole state changes
    - Incident creation
    - Ticket creation
    - Confidence score
    - Live Event Feed updates
-8. Progress the ticket through ACKNOWLEDGED and CREW_ASSIGNED.
-9. Trigger POWER RESTORED.
-10. Observe automatic transition to RESOLVED.
-11. Manually VERIFY and CLOSE the ticket.
+5. Progress the ticket through ACKNOWLEDGED and CREW_ASSIGNED.
+6. Try marking it RESOLVED while the span is still dark — the server
+   rejects it and the card shows the reason (telemetry says power is
+   not back yet).
+7. Trigger POWER RESTORED.
+8. Observe the ticket auto-transitions to VERIFIED from telemetry.
+9. Manually CLOSE the ticket.
 
 Following these steps reproduces the complete end-to-end workflow demonstrated in the project.
