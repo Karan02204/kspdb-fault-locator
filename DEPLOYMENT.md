@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This document describes how to build, configure, run, verify, troubleshoot, and reset the Propel Grid Intelligence Platform.
+This document describes how to build, configure, deploy, verify, troubleshoot, and reset the Propel Grid Intelligence Platform.
 
 ---
 
@@ -10,15 +10,18 @@ This document describes how to build, configure, run, verify, troubleshoot, and 
 
 | Software | Version |
 |----------|----------|
-| Node.js | >= 20.x |
-| npm | >= 10.x |
-| PostgreSQL | >= 16 |
+| Docker Desktop | Latest |
+| Docker Compose | v2+ |
 | Git | Latest |
+
+### Optional (Manual Development)
+
+| Software | Version |
+|----------|----------|
+| Node.js | >=20.x |
+| npm | >=10.x |
+| PostgreSQL | >=16 |
 | Prisma CLI | Installed via project dependencies |
-
-Optional:
-
-- Docker Desktop (latest)
 
 ---
 
@@ -28,7 +31,9 @@ Optional:
 backend/
 frontend/
 sample-data/
+docker-compose.yml
 README.md
+DEPLOYMENT.md
 ```
 
 ---
@@ -37,10 +42,17 @@ README.md
 
 Create a `.env` file inside the **backend** directory.
 
+You may simply copy the provided example.
+
+```bash
+cp backend/.env.example backend/.env
+```
+
 Example:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/propel_grid"
+DATABASE_URL=postgresql://...
+DIRECT_URL=postgresql://...
 
 PORT=3000
 
@@ -51,30 +63,19 @@ NODE_ENV=development
 
 ---
 
-## Environment Variable Reference
+# Environment Variable Reference
 
-| Variable | Required | Default | Purpose |
-|----------|----------|----------|----------|
-| DATABASE_URL | Yes | — | PostgreSQL connection string |
+| Variable | Required | Default | Description |
+|-----------|----------|----------|-------------|
+| DATABASE_URL | Yes | — | PostgreSQL pooled connection string used by Prisma |
+| DIRECT_URL | Yes | — | Direct PostgreSQL connection used for migrations |
 | PORT | No | 3000 | Backend API port |
 | HEARTBEAT_TIMEOUT_MINUTES | No | 2 | Heartbeat timeout threshold |
 | NODE_ENV | No | development | Runtime environment |
 
 ---
 
-# Frontend
-
-The frontend does not require additional environment variables in the current implementation.
-
-If desired, a `.env.example` may contain:
-
-```env
-VITE_API_URL=http://localhost:3000/api
-```
-
----
-
-# Installation
+# Quick Start (Recommended)
 
 ## 1. Clone Repository
 
@@ -86,75 +87,74 @@ cd <repository-name>
 
 ---
 
-## 2. Backend
+## 2. Configure Environment
 
-```bash
-cd backend
-
-npm install
-```
-
----
-
-## 3. Configure Database
-
-Create a PostgreSQL database.
-
-Example:
+Copy
 
 ```
-propel_grid
+backend/.env.example
 ```
 
-Update:
+to
 
 ```
 backend/.env
 ```
 
-with the correct connection string.
+Update
+
+- DATABASE_URL
+- DIRECT_URL
+
+to match your PostgreSQL or Neon database.
 
 ---
 
-## 4. Run Prisma Migrations
+## 3. Start Everything
 
 ```bash
-npx prisma migrate deploy
+docker compose up --build
 ```
 
-If running locally during development:
+Docker automatically:
 
-```bash
-npx prisma migrate dev
-```
+- installs dependencies
+- generates Prisma Client
+- runs migrations
+- starts the backend
+- starts the frontend
 
 ---
 
-## 5. Generate Prisma Client
+# Application URLs
+
+| Service | URL |
+|----------|-----|
+| Frontend | http://localhost:5173 |
+| Backend API | http://localhost:3000 |
+| Live Events (SSE) | http://localhost:3000/api/events |
+
+---
+
+# Manual Installation (Optional)
+
+## Backend
 
 ```bash
+cd backend
+
+npm install
+
 npx prisma generate
-```
 
----
+npx prisma migrate deploy
 
-## 6. Start Backend
-
-```bash
 npm run dev
 ```
 
-Backend runs at
-
-```
-http://localhost:3000
-```
-
 ---
 
-## 7. Frontend
-
-Open another terminal.
+## Frontend
 
 ```bash
 cd frontend
@@ -164,37 +164,9 @@ npm install
 npm run dev
 ```
 
-Frontend runs at
-
-```
-http://localhost:5173
-```
-
 ---
 
 # Initial Data Import
-
-Open the dashboard.
-
-Upload:
-
-- Poles CSV
-- Transformers CSV
-
-using the **Import Network** button.
-
-The platform automatically:
-
-- imports the network
-- stores official topology
-- infers missing topology
-- refreshes the dashboard
-
-No additional commands are required.
-
----
-
-# Verification
 
 Open
 
@@ -202,32 +174,42 @@ Open
 http://localhost:5173
 ```
 
-A successful deployment should display:
-
-- Interactive network map
-- KPI cards
-- Incident panel
-- Ticket panel
-- Simulator
-- Live event feed
-
 Click
 
 ```
 Import Network
 ```
 
-and upload the sample CSV files.
+Upload
 
-Then:
+- Transformers CSV
+- Poles CSV
 
-- topology should appear
-- poles should be visible
-- simulator controls should work
+The platform automatically
 
-Finally:
+- imports the network
+- reconstructs missing topology
+- stores official topology
+- refreshes the dashboard
 
-Trigger
+No additional setup is required.
+
+---
+
+# Verification
+
+A successful deployment should display
+
+- Interactive network map
+- KPI dashboard
+- Incident panel
+- Ticket panel
+- Simulator
+- Live Event Feed
+
+After importing the sample network,
+
+trigger
 
 ```
 BOOT
@@ -241,16 +223,89 @@ HEARTBEAT
 POWER LOST
 ```
 
-Expected result:
+Expected behaviour
 
-- pole color changes
-- incident created
-- ticket created
-- event appears in live feed
+- Pole turns red
+- Incident created
+- Ticket created
+- Live Event Feed updates
+- Confidence score displayed
+
+Trigger
+
+```
+POWER RESTORED
+```
+
+Expected behaviour
+
+- Pole becomes energized again
+- Ticket automatically transitions to RESOLVED
+- Operator may manually VERIFY and CLOSE the ticket
+
+---
+
+# Resetting the Project
+
+To completely reset the application
+
+Stop containers
+
+```bash
+docker compose down -v
+```
+
+Remove generated containers
+
+```bash
+docker compose build --no-cache
+```
+
+Restart
+
+```bash
+docker compose up --build
+```
+
+If running manually
+
+```bash
+npx prisma migrate reset
+
+npx prisma generate
+```
+
+Then re-import the sample network.
 
 ---
 
 # Troubleshooting
+
+---
+
+## Backend Cold Start
+
+### Symptom
+
+The frontend loads but
+
+- map remains loading
+- tickets remain loading
+- incidents remain loading
+
+for approximately 30–60 seconds.
+
+### Cause
+
+The public backend is deployed on a free-tier hosting provider which suspends inactive services.
+
+### Fix
+
+Wait for the backend to wake up.
+
+Once the first request completes the application loads normally.
+
+---
 
 ## Database Connection Failed
 
@@ -260,37 +315,45 @@ Expected result:
 PrismaClientInitializationError
 ```
 
+or
+
+```
+P1001: Can't reach database server
+```
+
 ### Cause
 
-Invalid database connection string.
+Incorrect database connection string.
 
 ### Fix
 
-Verify:
+Verify
 
 ```
 DATABASE_URL
+DIRECT_URL
 ```
 
-Ensure PostgreSQL is running.
+Ensure PostgreSQL or Neon is reachable.
 
 ---
 
-## Prisma Client Out of Date
+## Neon Connection Issues
 
 ### Symptom
 
-```
-Property does not exist on Prisma Client
-```
+Prisma migrations fail but the application starts.
+
+### Cause
+
+Using the direct Neon endpoint for application traffic.
 
 ### Fix
 
-Run
+Use
 
-```bash
-npx prisma generate
-```
+- pooled endpoint for `DATABASE_URL`
+- direct endpoint for `DIRECT_URL`
 
 ---
 
@@ -308,17 +371,77 @@ Database schema differs from migration history.
 
 ### Fix
 
-Development:
+Development
 
 ```bash
 npx prisma migrate reset
 ```
 
-Production:
+Production
 
 ```bash
 npx prisma migrate deploy
 ```
+
+---
+
+## Prisma Client Out of Date
+
+### Symptom
+
+```
+Property does not exist on Prisma Client
+```
+
+### Fix
+
+```bash
+npx prisma generate
+```
+
+---
+
+## Docker Uses Old Code
+
+### Symptom
+
+Code changes are not reflected after rebuilding.
+
+### Cause
+
+Docker layer cache.
+
+### Fix
+
+```bash
+docker compose build --no-cache
+
+docker compose up
+```
+
+---
+
+## start.sh Not Found
+
+### Symptom
+
+```
+./start.sh: not found
+```
+
+### Cause
+
+Windows CRLF line endings.
+
+### Fix
+
+Convert
+
+```
+start.sh
+```
+
+to Unix (LF) line endings and rebuild the image.
 
 ---
 
@@ -330,20 +453,18 @@ Import endpoint returns validation errors.
 
 ### Cause
 
-Missing required columns.
+CSV format does not match the expected schema.
 
 ### Fix
 
-Verify the CSV contains the expected columns.
-
-For transformers:
+Ensure transformers contain
 
 - dt_id
 - feeder_id
 - lat
 - lon
 
-For poles:
+Ensure poles contain
 
 - pole_id
 - dt_id
@@ -360,11 +481,11 @@ Power loss occurs but no incident appears.
 
 ### Cause
 
-Network has not been imported or topology has not been inferred.
+The network has not yet been imported.
 
 ### Fix
 
-Import the network first using the dashboard.
+Import the sample network before using the simulator.
 
 ---
 
@@ -372,7 +493,7 @@ Import the network first using the dashboard.
 
 ### Symptom
 
-Map updates only after refresh.
+Incidents or tickets only update after refreshing.
 
 ### Cause
 
@@ -380,7 +501,7 @@ Server-Sent Events connection failed.
 
 ### Fix
 
-Verify:
+Verify
 
 ```
 GET /api/events
@@ -388,7 +509,29 @@ GET /api/events
 
 returns a valid SSE stream.
 
-Check browser developer tools for EventSource errors.
+Check the browser Network tab for EventSource errors.
+
+---
+
+## Frontend Cannot Reach Backend
+
+### Symptom
+
+Every API request fails.
+
+### Cause
+
+Backend is not running or frontend API URL is incorrect.
+
+### Fix
+
+Verify
+
+```
+http://localhost:3000
+```
+
+is reachable.
 
 ---
 
@@ -400,7 +543,7 @@ Check browser developer tools for EventSource errors.
 Access-Control-Allow-Origin
 ```
 
-errors in browser console.
+errors appear in the browser console.
 
 ### Fix
 
@@ -409,6 +552,8 @@ Ensure the backend CORS configuration allows
 ```
 http://localhost:5173
 ```
+
+or your deployed frontend URL.
 
 ---
 
@@ -436,42 +581,6 @@ backend/.env
 
 ---
 
-## Frontend Cannot Reach Backend
-
-### Symptom
-
-Network requests fail.
-
-### Fix
-
-Verify backend is running on
-
-```
-http://localhost:3000
-```
-
-and the frontend API base URL matches the backend.
-
----
-
-## React Strict Mode
-
-### Symptom
-
-SSE events appear twice during development.
-
-### Cause
-
-React Strict Mode intentionally mounts components twice.
-
-### Fix
-
-This only occurs in development.
-
-Production builds behave normally.
-
----
-
 ## Leaflet Map Does Not Render
 
 ### Symptom
@@ -480,7 +589,7 @@ Blank map.
 
 ### Cause
 
-Leaflet CSS not loaded.
+Leaflet stylesheet is missing.
 
 ### Fix
 
@@ -498,67 +607,41 @@ main.tsx
 
 ---
 
-# Resetting the Project
+## React Strict Mode
 
-To reset the application to a clean state:
+### Symptom
 
-## Reset Database
+Server-Sent Events appear twice during development.
 
-```bash
-npx prisma migrate reset
-```
+### Cause
 
-This removes all imported network data, incidents, tickets, telemetry, and topology.
+React Strict Mode intentionally mounts components twice.
 
----
+### Fix
 
-## Regenerate Prisma Client
+This only occurs in development.
 
-```bash
-npx prisma generate
-```
+Production builds behave normally.
 
 ---
 
-## Restart Backend
+# Expected Demo Workflow
 
-```bash
-npm run dev
-```
-
----
-
-## Restart Frontend
-
-```bash
-npm run dev
-```
-
----
-
-## Re-import Sample Network
-
-Use the dashboard's **Import Network** button and upload the provided CSV files.
-
----
-
-# Expected Demo Flow
-
-1. Start backend.
-2. Start frontend.
-3. Open `http://localhost:5173`.
-4. Import the sample network.
-5. Verify topology is displayed.
-6. Simulate:
-   - BOOT
-   - HEARTBEAT
-   - POWER LOST
+1. Start the application.
+2. Import the sample network.
+3. Verify the topology appears.
+4. Trigger BOOT.
+5. Trigger HEARTBEAT.
+6. Trigger POWER LOST.
 7. Observe:
-   - Live pole status changes
+   - Pole state changes
    - Incident creation
    - Ticket creation
-   - Live dashboard updates
-8. Advance the ticket through its lifecycle.
-9. Trigger **POWER RESTORED** or **Repair** to restore the network.
+   - Confidence score
+   - Live Event Feed updates
+8. Progress the ticket through ACKNOWLEDGED and CREW_ASSIGNED.
+9. Trigger POWER RESTORED.
+10. Observe automatic transition to RESOLVED.
+11. Manually VERIFY and CLOSE the ticket.
 
-Following these steps should reproduce the complete end-to-end workflow demonstrated in the project.
+Following these steps reproduces the complete end-to-end workflow demonstrated in the project.

@@ -85,6 +85,8 @@ If all of the above work successfully, the platform has been configured correctl
 
 **Frontend:** *https://kspdb-fault-locator.vercel.app/*
 
+ **Note:** The backend is hosted on a free-tier service. If the application has been idle, the first request may take 30–60 seconds while the backend wakes up. During this period, the dashboard may display loading indicators. Once the backend is awake, subsequent requests respond normally.
+
 ---
 
 # ✨ Platform Features
