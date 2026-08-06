@@ -1,10 +1,20 @@
 import { EventType, HealthStatus } from "../../../../generated/prisma/enums";
 import { prisma } from "../../../lib/prisma";
+import { PoleStateEvent } from "../types";
 
 export class TelemetryRepository {
   async findDevice(deviceId: string) {
     return prisma.device.findUnique({
       where: { id: deviceId },
+      include: {
+        pole: true,
+      },
+    });
+  }
+
+  async findDeviceByPoleId(poleId: string) {
+    return prisma.device.findFirst({
+      where: { poleId },
       include: {
         pole: true,
       },
@@ -86,6 +96,13 @@ export class TelemetryRepository {
 
       data: {
         healthStatus: HealthStatus.OFFLINE,
+
+        // A heartbeat timeout is the only darkness evidence we have for
+        // firmware-1.2 devices and for the ~30% of dying messages that never
+        // arrive. Flip the pole state so localization can see the outage.
+        isEnergized: false,
+
+        lastPoleStateEvent: PoleStateEvent.POLE_DARK,
 
         lastHeartbeatAt: null,
       },

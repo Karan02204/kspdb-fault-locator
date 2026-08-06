@@ -1,10 +1,23 @@
 import type { NormalizedTelemetry } from "../types.js";
 
+/**
+ * Per-device serialization buffer.
+ *
+ * At-least-once delivery plus retries can flood a single device's queue.
+ * Overflow must not 500 the device (that makes it retry harder); instead
+ * the packet is dropped and counted so operators can observe the pressure.
+ */
 export class TelemetryBuffer {
   private queues = new Map<string, NormalizedTelemetry[]>();
 
   private processing = new Set<string>();
   private static readonly MAX_QUEUE_SIZE = 100;
+
+  private overflowCount = 0;
+
+  getOverflowCount(): number {
+    return this.overflowCount;
+  }
 
   async enqueue<T>(
     telemetry: NormalizedTelemetry,
@@ -13,7 +26,13 @@ export class TelemetryBuffer {
     const deviceQueue = this.queues.get(telemetry.deviceId) ?? [];
 
     if (deviceQueue.length >= TelemetryBuffer.MAX_QUEUE_SIZE) {
-      throw new Error("Telemetry buffer overflow.");
+      this.overflowCount++;
+
+      console.warn(
+        `Telemetry buffer overflow for ${telemetry.deviceId}; dropping packet.`,
+      );
+
+      return undefined;
     }
 
     deviceQueue.push(telemetry);

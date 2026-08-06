@@ -27,7 +27,12 @@ export class TelemetryController {
         },
       );
 
-      return res.status(200).json(result);
+      return res.status(200).json(
+        result ?? {
+          ignored: true,
+          reason: "Telemetry buffer overflow; packet dropped.",
+        },
+      );
     } catch (error) {
       next(error);
     }

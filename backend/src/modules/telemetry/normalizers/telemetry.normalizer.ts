@@ -9,9 +9,6 @@ export class TelemetryNormalizer {
     let event: PoleStateEvent;
 
     switch (request.eventType) {
-      // TODO:
-      // HEARTBEAT_TIMEOUT events are generated internally by the
-      // HeartbeatMonitor, not received directly from devices.
       case EventType.POWER_LOST:
         event = PoleStateEvent.POLE_DARK;
         break;
@@ -28,12 +25,20 @@ export class TelemetryNormalizer {
         event = PoleStateEvent.DEVICE_BOOTED;
         break;
 
+      // HEARTBEAT_TIMEOUT is generated internally by the HeartbeatMonitor,
+      // not received directly from devices.
       default:
         throw new Error(`Unsupported event type: ${request.eventType}`);
     }
 
     return {
       deviceId: request.deviceId,
+
+      ...(request.poleId !== undefined ? { poleId: request.poleId } : {}),
+
+      ...(request.energized !== undefined
+        ? { energized: request.energized }
+        : {}),
 
       event,
 

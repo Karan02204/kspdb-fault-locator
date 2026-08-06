@@ -31,4 +31,24 @@ app.use("/api/incidents", incidentRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/events", sseRoutes);
 app.use("/api/simulator", simulatorRoutes);
+
+// JSON error handler (registered last) so the operator console can surface
+// actionable messages (e.g. "Power has not been restored") instead of an
+// HTML 500.
+app.use(
+  (
+    err: unknown,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
+
+    console.error("[api-error]", message, err);
+
+    res.status(500).json({ error: message });
+  },
+);
+
 export default app;

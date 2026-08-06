@@ -46,10 +46,14 @@ export enum PoleStateEvent {
   POLE_LIVE = "POLE_LIVE",
   HEARTBEAT = "HEARTBEAT",
   DEVICE_BOOTED = "DEVICE_BOOTED",
+  UNKNOWN = "UNKNOWN",
 }
 
 export interface NormalizedTelemetry {
   deviceId: string;
+
+  /** Present when the payload carried `pole_id` — used as a resolution fallback. */
+  poleId?: string;
 
   event: PoleStateEvent;
 
@@ -64,4 +68,7 @@ export interface NormalizedTelemetry {
   firmwareVersion: string | null;
 
   originalEvent: EventType;
+
+  /** `energized` from the device payload: the current state as the device sees it. */
+  energized?: boolean;
 }

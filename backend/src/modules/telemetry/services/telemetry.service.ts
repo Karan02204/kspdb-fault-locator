@@ -8,6 +8,7 @@ import { eventBus } from "../../events/builders/event-bus.js";
 import { TicketStatus } from "../../../../generated/prisma/enums.js";
 import { TicketService } from "../../incident/services/ticket.service.js";
 import { IncidentRepository } from "../../incident/repositories/incident.repository.js";
+import { outageDebouncer } from "../../incident/builders/outage-debouncer.js";
 
 export class TelemetryService {
   private repository = new TelemetryRepository();
@@ -17,8 +18,11 @@ export class TelemetryService {
 
   private incidentRepository = new IncidentRepository();
 
+  /** Ignore a BOOT whose sequence number is not 0 (protocol violation) instead of failing the request. */
+  private static readonly BOOT_SEQUENCE_MUST_BE_ZERO = true;
+
   async processTelemetry(telemetry: NormalizedTelemetry) {
-    const device = await this.repository.findDevice(telemetry.deviceId);
+    const device = await this.resolveDevice(telemetry);
 
     if (!device) {
       throw new Error("Device not found.");
@@ -26,15 +30,39 @@ export class TelemetryService {
 
     const existing = await this.repository.getPoleHealth(device.poleId);
 
-    // Ignore duplicate or out-of-order packets
     const isBootEvent = telemetry.originalEvent === EventType.BOOT;
 
     const bootSession = isBootEvent
       ? (existing?.currentBootSession ?? 0) + 1
       : (existing?.currentBootSession ?? 0);
 
-    if (isBootEvent && telemetry.sequenceNumber !== 0) {
-      throw new Error("BOOT event must have sequence number 0.");
+    // ------------------------------------------------------------------
+    // Ordering & duplicate handling
+    // ------------------------------------------------------------------
+    if (
+      isBootEvent &&
+      TelemetryService.BOOT_SEQUENCE_MUST_BE_ZERO &&
+      telemetry.sequenceNumber !== 0
+    ) {
+      console.warn(
+        `Ignoring BOOT from ${telemetry.deviceId} with non-zero sequence ${telemetry.sequenceNumber}.`,
+      );
+
+      return { ignored: true, reason: "BOOT sequence must be 0." };
+    }
+
+    // Duplicate BOOTs within a short window (at-least-once retries) must not
+    // churn boot sessions.
+    if (isBootEvent && existing) {
+      const now = Date.now();
+      const lastReceived = existing.lastReceivedAt?.getTime() ?? 0;
+      const recentlyBooted =
+        existing.lastPoleStateEvent === PoleStateEvent.DEVICE_BOOTED &&
+        now - lastReceived < 2 * 60 * 1000;
+
+      if (recentlyBooted) {
+        return { ignored: true };
+      }
     }
 
     if (
@@ -48,7 +76,9 @@ export class TelemetryService {
       };
     }
 
+    // ------------------------------------------------------------------
     // Determine pole energized state
+    // ------------------------------------------------------------------
     let isEnergized = existing?.isEnergized ?? null;
 
     switch (telemetry.event) {
@@ -62,8 +92,14 @@ export class TelemetryService {
 
       case PoleStateEvent.HEARTBEAT:
       case PoleStateEvent.DEVICE_BOOTED:
-        // Keep previous energized state
+        // Keep previous energized state unless the device tells us otherwise.
         break;
+    }
+
+    // `energized` is the device's own reading of its current state — trust
+    // it over the event type when it is present.
+    if (telemetry.energized !== undefined) {
+      isEnergized = telemetry.energized;
     }
 
     // Determine health status
@@ -160,37 +196,91 @@ export class TelemetryService {
       timestamp: now,
     });
 
-    if (
-      telemetry.event === PoleStateEvent.POLE_LIVE ||
-      telemetry.event === PoleStateEvent.POLE_DARK
-    ) {
-      const transformerId = await this.repository.getTransformerIdByPoleId(
-        device.poleId,
+    const transformerId = await this.repository.getTransformerIdByPoleId(
+      device.poleId,
+    );
+
+    const previousIsEnergized = existing?.isEnergized ?? null;
+
+    const stateFlipped =
+      telemetry.energized !== undefined &&
+      previousIsEnergized !== null &&
+      previousIsEnergized !== isEnergized;
+
+    if (telemetry.event === PoleStateEvent.POLE_DARK || (stateFlipped && isEnergized === false)) {
+      // Enter the 30-second Candidate Observation Window. If the outage is
+      // still present when it elapses, localization runs and (if confident)
+      // an incident + ticket are created.
+      outageDebouncer.schedule(transformerId, () =>
+        this.incidentService.processTransformer(transformerId),
       );
+    } else if (
+      telemetry.event === PoleStateEvent.POLE_LIVE ||
+      (stateFlipped && isEnergized === true)
+    ) {
+      // Power is back: cancel any pending observation window and process
+      // immediately so incidents can be updated and tickets auto-verified.
+      outageDebouncer.cancel(transformerId);
+
+      outageDebouncer.cancelByPrefix(`maintenance-recheck:${transformerId}:`);
 
       const incidents =
         await this.incidentService.processTransformer(transformerId);
 
-      if (
-        telemetry.originalEvent === EventType.POWER_RESTORED &&
-        incidents.length === 0
-      ) {
-        const incident =
-          await this.incidentRepository.findOpenIncidentWithTicket(
-            transformerId,
-          );
-
-        if (incident?.ticket) {
-          await this.ticketService.updateTicketStatus(
-            incident.ticket.id,
-            TicketStatus.RESOLVED,
-          );
-        }
-      }
+      await this.autoVerifyRestoredTickets(transformerId, incidents);
     }
 
     return {
       success: true,
     };
+  }
+
+  private async resolveDevice(telemetry: NormalizedTelemetry) {
+    const byDeviceId = await this.repository.findDevice(telemetry.deviceId);
+
+    if (byDeviceId) {
+      return byDeviceId;
+    }
+
+    // The data contract says to trust pole_id over device_id; a device may
+    // have been swapped and the registry is stale.
+    if (telemetry.poleId) {
+      const byPoleId = await this.repository.findDeviceByPoleId(telemetry.poleId);
+
+      if (byPoleId) {
+        return byPoleId;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * When localization reports no remaining faults for a transformer, every
+   * open ticket on it is restored *as measured by telemetry* — not by a
+   * button click. Tickets are advanced to VERIFIED (system-verified) with
+   * resolvedAt/verifiedAt stamped.
+   */
+  private async autoVerifyRestoredTickets(
+    transformerId: string,
+    currentIncidents: unknown[],
+  ) {
+    if (currentIncidents.length > 0) {
+      return;
+    }
+
+    const tickets =
+      await this.incidentRepository.findOpenTicketsByTransformer(transformerId);
+
+    for (const ticket of tickets) {
+      if (
+        ticket.status === TicketStatus.VERIFIED ||
+        ticket.status === TicketStatus.CLOSED
+      ) {
+        continue;
+      }
+
+      await this.ticketService.verifyFromTelemetry(ticket.id);
+    }
   }
 }
