@@ -68,43 +68,35 @@ export default function NetworkMap({ selectedIncident }: Props) {
     );
   }
 
-  const transformer = data.transformers[0];
+  // Fit the view to the whole network instead of hard-coding the first
+  // transformer: the seeded network spans many transformers.
+  const allPoints: [number, number][] = [
+    ...data.transformers.map((dt: any) => [dt.lat, dt.lon] as [number, number]),
+    ...data.poles.map((pole: Pole) => [pole.lat, pole.lon] as [number, number]),
+  ];
 
-  const center: [number, number] = [transformer.lat, transformer.lon];
+  const bounds: [[number, number], [number, number]] =
+    allPoints.length === 0
+      ? [[0, 0], [0, 0]]
+      : [
+          [
+            Math.min(...allPoints.map((p) => p[0])) - 0.001,
+            Math.min(...allPoints.map((p) => p[1])) - 0.001,
+          ],
+          [
+            Math.max(...allPoints.map((p) => p[0])) + 0.001,
+            Math.max(...allPoints.map((p) => p[1])) + 0.001,
+          ],
+        ];
 
   const poleMap = new Map(data.poles.map((pole: Pole) => [pole.id, pole]));
 
-  // Root pole (nearest to transformer)
-  const rootPole = data.poles.reduce((nearest: Pole, pole: Pole) => {
-    const currentDistance =
-      Math.pow(pole.lat - transformer.lat, 2) +
-      Math.pow(pole.lon - transformer.lon, 2);
-
-    const nearestDistance =
-      Math.pow(nearest.lat - transformer.lat, 2) +
-      Math.pow(nearest.lon - transformer.lon, 2);
-
-    return currentDistance < nearestDistance ? pole : nearest;
-  });
-
   return (
     <div className="relative h-[820px] rounded-2xl overflow-hidden bg-white shadow-lg m-5 ">
-      <MapContainer center={center} zoom={18} className="h-full w-full">
+      <MapContainer bounds={bounds} className="h-full w-full">
         <TileLayer
           attribution="© OpenStreetMap © CARTO"
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-        />
-
-        {/* Transformer → Root Pole */}
-        <Polyline
-          positions={[
-            [transformer.lat, transformer.lon],
-            [rootPole.lat, rootPole.lon],
-          ]}
-          pathOptions={{
-            color: "#2563eb",
-            weight: 5,
-          }}
         />
 
         {/* Transformers */}

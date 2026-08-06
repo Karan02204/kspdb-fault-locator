@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useUpdateTicket } from "../../hooks/useUpdateTicket";
 import type { Ticket } from "../../types/ticket";
 
@@ -36,10 +37,25 @@ function getNextStatus(status: string) {
   }
 }
 
+function formatCoordinates(lat: number | null | undefined, lon: number | null | undefined) {
+  if (lat === null || lat === undefined || lon === null || lon === undefined) {
+    return null;
+  }
+
+  return `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+}
+
 export default function TicketCard({ ticket }: Props) {
   const { mutate, isPending } = useUpdateTicket();
 
+  const [error, setError] = useState<string | null>(null);
+
   const nextStatus = getNextStatus(ticket.status);
+
+  const boundaryPole = ticket.incident.boundaryToPole;
+
+  const coordinates = formatCoordinates(boundaryPole?.lat, boundaryPole?.lon);
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition cursor-pointer">
       <div className="flex items-center justify-between">
@@ -68,8 +84,14 @@ export default function TicketCard({ ticket }: Props) {
         </div>
         <div>
           <strong>PIN Code:</strong>{" "}
-          {ticket.incident.boundaryFromPole?.pin ?? "N/A"}
+          {boundaryPole?.pin ?? "N/A"}
         </div>
+
+        {coordinates && (
+          <div>
+            <strong>Coordinates:</strong> {coordinates}
+          </div>
+        )}
 
         <div>
           <strong>Affected Poles:</strong>{" "}
@@ -85,14 +107,32 @@ export default function TicketCard({ ticket }: Props) {
           Detected {new Date(ticket.detectedAt).toLocaleString()}
         </div>
 
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {error}
+          </div>
+        )}
+
         {nextStatus && (
           <button
             disabled={isPending}
             onClick={() =>
-              mutate({
-                ticketId: ticket.id,
-                status: nextStatus,
-              })
+              mutate(
+                {
+                  ticketId: ticket.id,
+                  status: nextStatus,
+                },
+                {
+                  onError: (err: any) => {
+                    setError(
+                      err?.response?.data?.error ??
+                        err?.message ??
+                        "Action failed. If you marked it RESOLVED, the span may still be dark — power must return first.",
+                    );
+                  },
+                  onSuccess: () => setError(null),
+                },
+              )
             }
             className="mt-4 w-full rounded-lg bg-blue-600 px-3 py-2 text-white transition hover:bg-blue-700 disabled:opacity-50"
           >

@@ -25,12 +25,21 @@ export interface Ticket {
     boundaryToPoleId: string;
     boundaryFromPole: {
       pin: string | null;
+      lat: number | null;
+      lon: number | null;
     };
 
     boundaryToPole: {
       pin: string | null;
+      lat: number | null;
+      lon: number | null;
     };
     affectedPoles: string[];
     confidenceScore: number;
+    confidenceBreakdown?: Array<{
+      type: string;
+      score: number;
+      reason: string;
+    }>;
   };
 }
