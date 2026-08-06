@@ -5,9 +5,17 @@ import { PoleStateEvent } from "../types.js";
 import { IncidentService } from "../../incident/services/incident.service.js";
 import { eventBus } from "../../events/builders/event-bus.js";
 
+import { TicketStatus } from "../../../../generated/prisma/enums.js";
+import { TicketService } from "../../incident/services/ticket.service.js";
+import { IncidentRepository } from "../../incident/repositories/incident.repository.js";
+
 export class TelemetryService {
   private repository = new TelemetryRepository();
   private incidentService = new IncidentService();
+
+  private ticketService = new TicketService();
+
+  private incidentRepository = new IncidentRepository();
 
   async processTelemetry(telemetry: NormalizedTelemetry) {
     const device = await this.repository.findDevice(telemetry.deviceId);
@@ -160,7 +168,25 @@ export class TelemetryService {
         device.poleId,
       );
 
-      await this.incidentService.processTransformer(transformerId);
+      const incidents =
+        await this.incidentService.processTransformer(transformerId);
+
+      if (
+        telemetry.originalEvent === EventType.POWER_RESTORED &&
+        incidents.length === 0
+      ) {
+        const incident =
+          await this.incidentRepository.findOpenIncidentWithTicket(
+            transformerId,
+          );
+
+        if (incident?.ticket) {
+          await this.ticketService.updateTicketStatus(
+            incident.ticket.id,
+            TicketStatus.RESOLVED,
+          );
+        }
+      }
     }
 
     return {

@@ -25,8 +25,6 @@ export class IncidentService {
     const localizedFaults =
       await this.localizationService.localizeTransformer(transformerId);
 
-    console.log(transformerId, localizedFaults.length, localizedFaults);
-
     if (localizedFaults.length === 0) {
       return [];
     }

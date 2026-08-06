@@ -366,4 +366,18 @@ export class IncidentRepository {
       },
     });
   }
+
+  async findOpenIncidentWithTicket(transformerId: string) {
+    return prisma.incident.findFirst({
+      where: {
+        transformerId,
+        ticket: {
+          status: TicketStatus.CREW_ASSIGNED,
+        },
+      },
+      include: {
+        ticket: true,
+      },
+    });
+  }
 }
