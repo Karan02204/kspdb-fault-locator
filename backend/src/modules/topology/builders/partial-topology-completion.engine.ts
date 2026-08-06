@@ -2,12 +2,20 @@ import type {
   GraphNode,
   InferredConnection,
   TransformerLocation,
-  PoleAttachment
 } from "../types.js";
 
 import { haversineDistance } from "../utils/distance.js";
 import { TopologyConfidenceBuilder } from "./topology-confidence.builder.js";
 
+/**
+ * Completes a partially-known radial topology by attaching every
+ * disconnected pole to the nearest already-connected pole.
+ *
+ * Complexity: O(n²) — the nearest-connected-pole map is maintained
+ * incrementally instead of being recomputed from scratch per iteration.
+ * (The previous all-pairs-recompute-per-iteration version was O(n³) and
+ * took seconds even for a single 200-pole transformer.)
+ */
 export class PartialTopologyCompletionEngine {
   private confidenceBuilder = new TopologyConfidenceBuilder();
   private buildAdjacency(
@@ -69,83 +77,6 @@ export class PartialTopologyCompletionEngine {
     return visited;
   }
 
-  private findNearestConnectedPole(
-    disconnectedPole: GraphNode,
-    poles: GraphNode[],
-    connected: Set<string>,
-  ): GraphNode {
-    let nearest: GraphNode | null = null;
-
-    let minimumDistance = Number.MAX_VALUE;
-
-    for (const pole of poles) {
-      if (!connected.has(pole.id)) {
-        continue;
-      }
-
-      const distance = haversineDistance(
-        disconnectedPole.latitude,
-        disconnectedPole.longitude,
-        pole.latitude,
-        pole.longitude,
-      );
-
-      if (distance < minimumDistance) {
-        minimumDistance = distance;
-
-        nearest = pole;
-      }
-    }
-
-    if (!nearest) {
-      throw new Error("No connected pole available.");
-    }
-
-    return nearest;
-  }
-
-  private findBestAttachment(
-    poles: GraphNode[],
-    connected: Set<string>,
-  ): PoleAttachment {
-    let bestParent: GraphNode | null = null;
-
-    let bestChild: GraphNode | null = null;
-
-    let bestDistance = Number.MAX_VALUE;
-
-    for (const pole of poles) {
-      if (connected.has(pole.id)) {
-        continue;
-      }
-
-      const nearest = this.findNearestConnectedPole(pole, poles, connected);
-
-      const distance = haversineDistance(
-        nearest.latitude,
-        nearest.longitude,
-        pole.latitude,
-        pole.longitude,
-      );
-
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestParent = nearest;
-        bestChild = pole;
-      }
-    }
-
-    if (!bestParent || !bestChild) {
-      throw new Error("Unable to determine next attachment.");
-    }
-
-    return {
-      parent: bestParent,
-      child: bestChild,
-      distance: bestDistance,
-    };
-  }
-
   complete(
     transformer: TransformerLocation,
     poles: GraphNode[],
@@ -155,44 +86,129 @@ export class PartialTopologyCompletionEngine {
 
     const inferredConnections: InferredConnection[] = [];
 
+    // Distance scale used only to normalise the per-edge confidence.
+    const maxDistance = this.maxPairwiseDistance(poles);
+
+    // nearest[poleId] = nearest pole already connected, and its distance.
+    const nearest = new Map<string, { pole: GraphNode; distance: number }>();
+
+    const attach = (pole: GraphNode, parent: GraphNode, distance: number) => {
+      inferredConnections.push({
+        parentPoleId: parent.id,
+
+        childPoleId: pole.id,
+
+        distance,
+
+        confidence: this.confidenceBuilder.calculate(distance, maxDistance),
+      });
+
+      connected.add(pole.id);
+
+      // Newly connected pole may become the nearest attachment for others.
+      for (const other of poles) {
+        if (connected.has(other.id)) {
+          continue;
+        }
+
+        const d = haversineDistance(
+          pole.latitude,
+          pole.longitude,
+          other.latitude,
+          other.longitude,
+        );
+
+        const current = nearest.get(other.id);
+
+        if (!current || d < current.distance) {
+          nearest.set(other.id, { pole, distance: d });
+        }
+      }
+    };
+
+    // Seed the nearest map with the official connected set.
+    for (const pole of poles) {
+      if (connected.has(pole.id)) {
+        continue;
+      }
+
+      let best: { pole: GraphNode; distance: number } | null = null;
+
+      for (const candidate of poles) {
+        if (!connected.has(candidate.id)) {
+          continue;
+        }
+
+        const d = haversineDistance(
+          pole.latitude,
+          pole.longitude,
+          candidate.latitude,
+          candidate.longitude,
+        );
+
+        if (!best || d < best.distance) {
+          best = { pole: candidate, distance: d };
+        }
+      }
+
+      if (best) {
+        nearest.set(pole.id, best);
+      }
+    }
+
     while (connected.size < poles.length) {
-      const attachment = this.findBestAttachment(poles, connected);
+      // Pick the disconnected pole closest to the connected region.
+      let bestPoleId: string | null = null;
 
-      const maxDistance = Math.max(
-        ...poles.flatMap((pole) =>
-          poles
-            .filter((p) => p.id !== pole.id)
-            .map((p) =>
-              haversineDistance(
-                pole.latitude,
-                pole.longitude,
-                p.latitude,
-                p.longitude,
-              ),
-            ),
-        ),
-      );
+      for (const pole of poles) {
+        if (connected.has(pole.id) || !nearest.has(pole.id)) {
+          continue;
+        }
 
-      const connection: InferredConnection = {
-        parentPoleId: attachment.parent.id,
+        if (
+          bestPoleId === null ||
+          nearest.get(pole.id)!.distance < nearest.get(bestPoleId)!.distance
+        ) {
+          bestPoleId = pole.id;
+        }
+      }
 
-        childPoleId: attachment.child.id,
+      if (!bestPoleId) {
+        // No pole is attachable (empty official set already handled by the
+        // full-inference engine; nothing more we can do here).
+        break;
+      }
 
-        distance: attachment.distance,
+      const pole = poles.find((p) => p.id === bestPoleId)!;
 
-        confidence: this.confidenceBuilder.calculate(
-          attachment.distance,
-          maxDistance,
-        ),
-      };
+      const attachment = nearest.get(pole.id)!;
 
-      inferredConnections.push(connection);
+      attach(pole, attachment.pole, attachment.distance);
 
-      officialConnections.push(connection);
-
-      connected.add(attachment.child.id);
+      nearest.delete(pole.id);
     }
 
     return inferredConnections;
+  }
+
+  private maxPairwiseDistance(poles: GraphNode[]): number {
+    let max = 0;
+
+    for (let i = 0; i < poles.length; i++) {
+      for (let j = i + 1; j < poles.length; j++) {
+        const d = haversineDistance(
+          poles[i]!.latitude,
+          poles[i]!.longitude,
+          poles[j]!.latitude,
+          poles[j]!.longitude,
+        );
+
+        if (d > max) {
+          max = d;
+        }
+      }
+    }
+
+    return max;
   }
 }

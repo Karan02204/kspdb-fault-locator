@@ -9,7 +9,7 @@ export class TopologyRepository {
   async getTransformers(): Promise<TransformerLocation[]> {
     const transformers = await prisma.distributionTransformer.findMany();
 
-    return transformers.map((transformer) => ({
+    return transformers.map((transformer: any) => ({
       id: transformer.id,
       latitude: transformer.lat,
       longitude: transformer.lon,
@@ -23,7 +23,7 @@ export class TopologyRepository {
       },
     });
 
-    return poles.map((pole) => ({
+    return poles.map((pole: any) => ({
       id: pole.id,
       latitude: pole.lat,
       longitude: pole.lon,
@@ -42,7 +42,7 @@ export class TopologyRepository {
       },
     });
 
-    return connections.map((connection) => ({
+    return connections.map((connection: any) => ({
       parentPoleId: connection.fromPoleId,
       childPoleId: connection.toPoleId,
       distance: 0, // Distance isn't needed for completeness checking.
