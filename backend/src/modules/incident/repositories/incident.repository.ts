@@ -130,6 +130,10 @@ export class IncidentRepository {
       },
 
       data: {
+        boundaryFromPoleId: candidate.fault.upstreamPoleId,
+
+        boundaryToPoleId: candidate.fault.downstreamPoleId,
+
         confidenceScore: candidate.confidence.overallScore,
 
         confidenceBreakdown: candidate.confidence
